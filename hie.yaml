@@ -1,0 +1,13 @@
+cradle:
+  stack:
+    - path: "./src"
+      component: "gameverif:lib"
+
+    - path: "./exe/Main.hs"
+      component: "gameverif:exe:gameverif-exe"
+
+    - path: "./exe/Paths_gameverif.hs"
+      component: "gameverif:exe:gameverif-exe"
+
+    - path: "./test"
+      component: "gameverif:test:gameverif-test"
