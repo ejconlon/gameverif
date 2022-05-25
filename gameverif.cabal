@@ -25,6 +25,7 @@ source-repository head
 library
   exposed-modules:
       Gameverif
+      Gameverif.Ecsy.Base
       Gameverif.Util.Adjunction
       Gameverif.Util.Ann
       Gameverif.Util.Console
