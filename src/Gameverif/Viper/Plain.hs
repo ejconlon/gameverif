@@ -2,7 +2,7 @@ module Gameverif.Viper.Plain where
 
 import Data.Functor.Foldable (Base, Corecursive (..), Recursive (..))
 import Data.Sequence (Seq)
-import Gameverif.TwoLevel (Base1, Corecursive1 (..), Recursive1 (..), TwoLevel (..))
+import Gameverif.Util.TwoLevel (Base1, Corecursive1 (..), Recursive1 (..), TwoLevel (..))
 import Gameverif.Viper.Base (ExpF, ProgDecl, StmtSeqF)
 
 newtype Exp v = Exp { unExp :: ExpF v (Exp v) }

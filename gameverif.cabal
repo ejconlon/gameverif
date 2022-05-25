@@ -25,8 +25,13 @@ source-repository head
 library
   exposed-modules:
       Gameverif
-      Gameverif.TwoLevel
+      Gameverif.Util.Adjunction
+      Gameverif.Util.Ann
+      Gameverif.Util.Console
+      Gameverif.Util.TwoLevel
       Gameverif.Viper.Base
+      Gameverif.Viper.Concrete
+      Gameverif.Viper.Parser
       Gameverif.Viper.Plain
       Gameverif.Viper.Printer
   other-modules:
@@ -63,12 +68,16 @@ library
   build-depends:
       base >=4.12 && <5
     , containers
+    , errata
+    , exceptions
     , mtl
     , prettyprinter
     , recursion-schemes
     , simple-parser
     , text
+    , text-builder
     , transformers
+    , unliftio-core
   default-language: Haskell2010
 
 executable gameverif-exe
@@ -107,13 +116,17 @@ executable gameverif-exe
   build-depends:
       base >=4.12 && <5
     , containers
+    , errata
+    , exceptions
     , gameverif
     , mtl
     , prettyprinter
     , recursion-schemes
     , simple-parser
     , text
+    , text-builder
     , transformers
+    , unliftio-core
   default-language: Haskell2010
 
 test-suite gameverif-test
@@ -153,6 +166,8 @@ test-suite gameverif-test
   build-depends:
       base >=4.12 && <5
     , containers
+    , errata
+    , exceptions
     , gameverif
     , mtl
     , prettyprinter
@@ -161,5 +176,7 @@ test-suite gameverif-test
     , tasty
     , tasty-hunit
     , text
+    , text-builder
     , transformers
+    , unliftio-core
   default-language: Haskell2010

@@ -15,13 +15,17 @@ description: Please see the README on GitHub at <https://github.com/ejconlon/gam
 
 dependencies:
 - base >= 4.12 && < 5
+- errata
 - containers
+- exceptions
+- mtl
 - prettyprinter
 - recursion-schemes
-- text
-- mtl
-- transformers
 - simple-parser
+- text
+- text-builder
+- transformers
+- unliftio-core
 
 default-extensions:
 - BangPatterns
