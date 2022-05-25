@@ -5,3 +5,6 @@ ghc-options:
 
 packages:
 - .
+
+extra-deps:
+- simple-parser-0.12.0
