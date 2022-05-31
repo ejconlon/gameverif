@@ -52,3 +52,8 @@ newtype ConsoleM a = ConsoleM { unConsoleM :: ReaderT ConsoleEnv IO a }
 
 runConsoleM :: ConsoleM a -> ConsoleEnv -> IO a
 runConsoleM m = runReaderT (unConsoleM m)
+
+withConsoleM :: FilePath -> ConsoleM a -> IO a
+withConsoleM fp act = do
+  env <- newConsoleEnv fp
+  runConsoleM act env

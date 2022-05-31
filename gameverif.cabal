@@ -35,6 +35,7 @@ library
       Gameverif.Viper.Parser
       Gameverif.Viper.Plain
       Gameverif.Viper.Printer
+      Gameverif.Viper.Testing
   other-modules:
       Paths_gameverif
   hs-source-dirs:

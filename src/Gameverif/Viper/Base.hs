@@ -201,7 +201,7 @@ data Local e v = Local
   } deriving stock (Eq, Show, Functor, Foldable, Traversable)
 
 localMapExp :: (e v -> f v) -> Local e v -> Local f v
-localMapExp g (Local n t me) = Local n t (fmap g me)
+localMapExp onExp (Local n t me) = Local n t (fmap onExp me)
 
 data ProofAction =
     ProofActionInhale
@@ -220,13 +220,13 @@ data Action e v =
   deriving stock (Eq, Show, Functor, Foldable, Traversable)
 
 actionMapExp :: (e v -> f v) -> Action e v -> Action f v
-actionMapExp g = \case
+actionMapExp onExp = \case
   ActionLabel lb -> ActionLabel lb
-  ActionProof pa e -> ActionProof pa (g e)
-  ActionAssignVars vs e -> ActionAssignVars vs (g e)
-  ActionAssignField v fn e -> ActionAssignField v fn (g e)
-  ActionUnfold e -> ActionUnfold (g e)
-  ActionFold e -> ActionFold (g e)
+  ActionProof pa e -> ActionProof pa (onExp e)
+  ActionAssignVars vs e -> ActionAssignVars vs (onExp e)
+  ActionAssignField v fn e -> ActionAssignField v fn (onExp e)
+  ActionUnfold e -> ActionUnfold (onExp e)
+  ActionFold e -> ActionFold (onExp e)
 
 data StmtF e v a =
     StmtLocalF !(Seq (Local e v)) a
@@ -269,11 +269,11 @@ instance Traversable e => Bitraversable (StmtF e) where
     goAction = traverse f
 
 stmtMapExp :: (e v -> f v) -> StmtF e v a -> StmtF f v a
-stmtMapExp g = \case
-  StmtLocalF ds a -> StmtLocalF (fmap (localMapExp g) ds) a
-  StmtIfF e a b -> StmtIfF (g e) a b
-  StmtWhileF e ps a -> StmtWhileF (g e) (fmap g ps) a
-  StmtActionF s -> StmtActionF (actionMapExp g s)
+stmtMapExp onExp = \case
+  StmtLocalF ds a -> StmtLocalF (fmap (localMapExp onExp) ds) a
+  StmtIfF e a b -> StmtIfF (onExp e) a b
+  StmtWhileF e ps a -> StmtWhileF (onExp e) (fmap onExp ps) a
+  StmtActionF s -> StmtActionF (actionMapExp onExp s)
 
 data StmtSeqF e v a =
     StmtSeqNilF
@@ -281,9 +281,9 @@ data StmtSeqF e v a =
   deriving stock (Eq, Show, Functor)
 
 stmtSeqMapExp :: (e v -> f v) -> StmtSeqF e v a -> StmtSeqF f v a
-stmtSeqMapExp g = \case
+stmtSeqMapExp onExp = \case
   StmtSeqNilF -> StmtSeqNilF
-  StmtSeqConsF sf a -> StmtSeqConsF (stmtMapExp g sf) a
+  StmtSeqConsF sf a -> StmtSeqConsF (stmtMapExp onExp sf) a
 
 instance Functor e => Bifunctor (StmtSeqF e) where
   bimap f g = \case
@@ -315,11 +315,17 @@ data AxiomDecl e v = AxiomDecl
   , axiomDeclBody :: !(e v)
   } deriving stock (Eq, Show, Functor, Foldable, Traversable)
 
+axiomDeclMapExp :: (e v -> f v) -> AxiomDecl e v -> AxiomDecl f v
+axiomDeclMapExp onExp (AxiomDecl mn body) = AxiomDecl mn (onExp body)
+
 data DomDecl e v = DomDecl
   { domDeclName :: !TyName
   , domDeclDomFuncs :: !(Seq (DomFuncDecl v))
   , domDeclAxioms :: !(Seq (AxiomDecl e v))
   } deriving stock (Eq, Show, Functor, Foldable, Traversable)
+
+domDeclMapExp :: (e v -> f v) -> DomDecl e v -> DomDecl f v
+domDeclMapExp onExp (DomDecl n fs as) = DomDecl n fs (fmap (axiomDeclMapExp onExp) as)
 
 data DomFuncDecl v = DomFuncDecl
   { domFuncDeclName :: !FuncName
@@ -336,6 +342,9 @@ data FuncDecl e v = FuncDecl
   , funcDeclBody :: !(e v)
   } deriving stock (Eq, Show, Functor, Foldable, Traversable)
 
+funcDeclMapExp :: (e v -> f v) -> FuncDecl e v -> FuncDecl f v
+funcDeclMapExp onExp (FuncDecl n as r rs es b) = FuncDecl n as r (fmap onExp rs) (fmap onExp es) (onExp b)
+
 data MethDecl e s v = MethDecl
   { methDeclName :: !MethName
   , methDeclArgs :: !(Seq ArgDecl)
@@ -345,11 +354,17 @@ data MethDecl e s v = MethDecl
   , methDeclBody :: !(s v)
   } deriving stock (Eq, Show, Functor, Foldable, Traversable)
 
+methDeclMapBoth :: (e v -> f v) -> (s v -> t v) -> MethDecl e s v -> MethDecl f t v
+methDeclMapBoth onExp onStmt (MethDecl n as rs req ens b) = MethDecl n as rs (fmap onExp req) (fmap onExp ens) (onStmt b)
+
 data PredDecl e v = PredDecl
   { predDeclName :: !PredName
   , predDeclArgs :: !(Seq ArgDecl)
   , predDeclBody :: !(e v)
   } deriving stock (Eq, Show, Functor, Foldable, Traversable)
+
+predDeclMapExp :: (e v -> f v) -> PredDecl e v -> PredDecl f v
+predDeclMapExp onExp (PredDecl n as b) = PredDecl n as (onExp b)
 
 data ProgDecl e s v =
     ProgDeclField !FieldDecl
@@ -358,3 +373,11 @@ data ProgDecl e s v =
   | ProgDeclMeth !(MethDecl e s v)
   | ProgDeclPred !(PredDecl e v)
   deriving stock (Eq, Show, Functor, Foldable, Traversable)
+
+progDeclMapBoth :: (e v -> f v) -> (s v -> t v) -> ProgDecl e s v -> ProgDecl f t v
+progDeclMapBoth onExp onStmt = \case
+  ProgDeclField fd -> ProgDeclField fd
+  ProgDeclDom dd -> ProgDeclDom (domDeclMapExp onExp dd)
+  ProgDeclFunc fd -> ProgDeclFunc (funcDeclMapExp onExp fd)
+  ProgDeclMeth md -> ProgDeclMeth (methDeclMapBoth onExp onStmt md)
+  ProgDeclPred pd -> ProgDeclPred (predDeclMapExp onExp pd)

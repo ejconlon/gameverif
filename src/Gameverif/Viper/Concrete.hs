@@ -6,8 +6,8 @@ import Data.Sequence (Seq)
 import Gameverif.Util.Adjunction (WrappedF (..))
 import Gameverif.Util.Ann (AnnF (..), Located (..))
 import Gameverif.Util.TwoLevel (Base1, Corecursive1 (..), Recursive1 (..), TwoLevel (..))
-import Gameverif.Viper.Base (ExpF, ProgDecl, StmtSeqF, stmtSeqMapExp)
-import Gameverif.Viper.Plain (Exp (..), StmtSeq (StmtSeq))
+import Gameverif.Viper.Base (ExpF, ProgDecl, StmtSeqF, progDeclMapBoth, stmtSeqMapExp)
+import Gameverif.Viper.Plain (Exp (..), PlainDecl, PlainProg, StmtSeq (StmtSeq))
 
 newtype AnnExpF p v a = AnnExpF { unAnnExpF :: AnnF p ExpF v a }
   deriving stock (Show)
@@ -102,4 +102,10 @@ type AnnProgDecl p v = Located p (ProgDecl (AnnExp p) (AnnStmtSeq p) v)
 mkAnnProgDecl :: p -> ProgDecl (AnnExp p) (AnnStmtSeq p) v -> AnnProgDecl p v
 mkAnnProgDecl = Located
 
+forgetAnnProgDecl :: AnnProgDecl p v -> PlainDecl v
+forgetAnnProgDecl = progDeclMapBoth forgetAnnExp forgetAnnStmtSeq . locVal
+
 type AnnProg p v = Seq (AnnProgDecl p v)
+
+forgetAnnProg :: AnnProg p v -> PlainProg v
+forgetAnnProg = fmap forgetAnnProgDecl

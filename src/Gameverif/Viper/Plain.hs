@@ -55,4 +55,4 @@ instance Traversable StmtSeq where
 
 type PlainDecl v = ProgDecl Exp StmtSeq v
 
-type PlainProgram v = Seq (PlainDecl v)
+type PlainProg v = Seq (PlainDecl v)

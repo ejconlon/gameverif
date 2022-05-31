@@ -5,7 +5,7 @@ DEBUGGING:
 make ghci
 import qualified Easychair.Parsers.Viper as V
 import Text.Pretty.Simple (pPrint)
-parseVipProgramFileInteractive "test.vpr" >>= pPrint
+parseVipProgramFileInteractive "testdata/test.vpr" >>= pPrint
 debugVipInteractive V.expP "0"
 -}
 module Gameverif.Viper.Parser where
@@ -21,15 +21,15 @@ import qualified Data.Sequence as Seq
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Void (Void)
-import Gameverif.Viper.Base (Action (..), ArgDecl (..), AxName (..), AxiomDecl (..), BuiltOp (..), DomDecl (..),
-                                DomFuncDecl (..), ExpF (..), FieldDecl (..), FieldName (..), Fixity (..), FuncDecl (..),
-                                FuncName (..), Lit (..), LitTy (..), Local (..), MethDecl (..), MethName (..), Op (..),
-                                PredDecl (..), PredName (..), ProgDecl (..), ProofAction (..), Quant (..),
-                                QuantVar (..), StmtF (..), StmtSeqF (..), Ty (..), TyName (..), VarName (..), opFixity)
-import Gameverif.Viper.Concrete (AnnExp (..), AnnProg, AnnProgDecl, AnnStmtSeq (..), mkAnnExp, mkAnnProgDecl,
-                                    mkAnnStmtSeq)
-import Gameverif.Util.Console (ConsoleEnv (ConsoleEnv), ConsoleM)
 import Errata (Block, PointerStyle, Style)
+import Gameverif.Util.Console (ConsoleEnv (ConsoleEnv), ConsoleM, renderBlocksM)
+import Gameverif.Viper.Base (Action (..), ArgDecl (..), AxName (..), AxiomDecl (..), BuiltOp (..), DomDecl (..),
+                             DomFuncDecl (..), ExpF (..), FieldDecl (..), FieldName (..), Fixity (..), FuncDecl (..),
+                             FuncName (..), Lit (..), LitTy (..), Local (..), MethDecl (..), MethName (..), Op (..),
+                             PredDecl (..), PredName (..), ProgDecl (..), ProofAction (..), Quant (..), QuantVar (..),
+                             StmtF (..), StmtSeqF (..), Ty (..), TyName (..), VarName (..), opFixity)
+import Gameverif.Viper.Concrete (AnnExp (..), AnnProg, AnnProgDecl, AnnStmtSeq (..), mkAnnExp, mkAnnProgDecl,
+                                 mkAnnStmtSeq)
 import SimpleParser (Chunked (..), EmbedTextLabel (..), ExplainLabel (..), LexedSpan (..), LexedStream (..), LinePos,
                      MatchBlock (..), MatchCase (..), ParseErrorBundle (..), ParseResult (..), ParseSuccess (..),
                      Parser, PosStream (..), ShowTextBuildable (..), Span (..), Spanned (..), Stream (..),
@@ -741,7 +741,7 @@ data VipParseResult a =
   | VPRParseErr ![Block]
   | VPRParseEmpty
   | VPRParseSuccess !a
-  deriving stock (Show)
+  deriving stock (Show, Functor)
 
 parseVipProgramErrata :: Style -> PointerStyle -> FilePath -> Text -> VipParseResult (AnnProg (Span LinePos) Text)
 parseVipProgramErrata bsty psty fp contents =
@@ -762,3 +762,11 @@ parseVipProgramConsole :: ConsoleM (VipParseResult (AnnProg (Span LinePos) Text)
 parseVipProgramConsole = do
   ConsoleEnv bsty psty fp contents <- ask
   pure (parseVipProgramErrata bsty psty fp contents)
+
+renderVipParseResult :: VipParseResult a -> ConsoleM a
+renderVipParseResult = \case
+  VPRLexErr bls -> renderBlocksM bls *> fail "lex error"
+  VPRLexEmpty -> fail "lex empty"
+  VPRParseErr bls -> renderBlocksM bls *> fail "parse error"
+  VPRParseEmpty -> fail "parse empty"
+  VPRParseSuccess a -> pure a
