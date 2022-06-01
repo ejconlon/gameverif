@@ -6,11 +6,11 @@ import Data.Foldable (toList)
 import Data.Maybe (catMaybes)
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
-import Gameverif.Viper.Base (Action (..), ArgDecl (..), BuiltOp (..), DomDecl (..), ExpF (..), FieldDecl (..),
-                             FieldName (..), FuncDecl (..), FuncName (..), Lit (..), LitTy (..), Local (..),
-                             MethDecl (..), MethName (..), Op (..), PredDecl (..), PredName (..), ProgDecl (..),
-                             ProofAction (..), Quant (..), QuantVar (..), StmtF (..), StmtSeqF (..), Trigger, Ty (..),
-                             TyName (..), VarName (..), opArity)
+import Gameverif.Viper.Base (Action (..), ArgDecl (..), AxName (..), AxiomDecl (..), BuiltOp (..), DomDecl (..),
+                             DomFuncDecl (..), ExpF (..), FieldDecl (..), FieldName (..), FuncDecl (..), FuncName (..),
+                             Lit (..), LitTy (..), Local (..), MethDecl (..), MethName (..), Op (..), PredDecl (..),
+                             PredName (..), ProgDecl (..), ProofAction (..), Quant (..), QuantVar (..), StmtF (..),
+                             StmtSeqF (..), Trigger, Ty (..), TyName (..), VarName (..), opArity)
 import Gameverif.Viper.Plain (Exp (..), PlainDecl, PlainProg, StmtSeq (..))
 import Prettyprinter (Doc, Pretty)
 import qualified Prettyprinter as P
@@ -60,10 +60,22 @@ printDomDecl :: Pretty v => DomDecl Exp v -> Doc ann
 printDomDecl (DomDecl tn fns axs) = mvsep
   [ Just $ P.hsep ["domain", P.pretty (unTyName tn)]
   , Just P.lbrace
-  -- TODO fns
-  -- TODO axs
+  , if Seq.null fns then Nothing else Just (P.indent tabWidth (P.vsep (fmap printDomFunc (toList fns))))
+  , if Seq.null axs then Nothing else Just (P.indent tabWidth (P.vsep (fmap printAxiom (toList axs))))
   , Just P.rbrace
   ]
+
+printAxiom :: Pretty v => AxiomDecl Exp v -> Doc ann
+printAxiom (AxiomDecl man ex) = P.vsep
+  [ mhsep [Just "axiom", fmap (P.pretty . unAxName) man]
+  , P.lbrace
+  , P.indent tabWidth (printExp ex)
+  , P.rbrace
+  ]
+
+printDomFunc :: DomFuncDecl -> Doc ann
+printDomFunc (DomFuncDecl fn args ret) =
+  P.hcat ["function", P.space, P.pretty (unFuncName fn), P.parens (printComma printArg args), P.colon, P.space, printTy ret]
 
 printArg :: ArgDecl -> Doc ann
 printArg (ArgDecl vn ty) = P.hcat [P.pretty (unVarName vn), P.colon, P.space, printTy ty]
@@ -243,7 +255,7 @@ printMethDecl (MethDecl mn args rets rqs ens body) = mvsep
 
 printPredDecl :: Pretty v => PredDecl Exp v -> Doc ann
 printPredDecl (PredDecl pn args body) = mvsep
-  [ Just $ P.hsep ["predicate", P.pretty (unPredName pn), P.parens (printComma printArg args)]
+  [ Just $ P.hcat ["predicate", P.space, P.pretty (unPredName pn), P.parens (printComma printArg args)]
   , Just P.lbrace
   , Just (P.indent tabWidth (printExp body))
   , Just P.rbrace

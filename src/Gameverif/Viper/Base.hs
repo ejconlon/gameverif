@@ -320,18 +320,18 @@ axiomDeclMapExp onExp (AxiomDecl mn body) = AxiomDecl mn (onExp body)
 
 data DomDecl e v = DomDecl
   { domDeclName :: !TyName
-  , domDeclDomFuncs :: !(Seq (DomFuncDecl v))
+  , domDeclDomFuncs :: !(Seq DomFuncDecl)
   , domDeclAxioms :: !(Seq (AxiomDecl e v))
   } deriving stock (Eq, Show, Functor, Foldable, Traversable)
 
 domDeclMapExp :: (e v -> f v) -> DomDecl e v -> DomDecl f v
 domDeclMapExp onExp (DomDecl n fs as) = DomDecl n fs (fmap (axiomDeclMapExp onExp) as)
 
-data DomFuncDecl v = DomFuncDecl
+data DomFuncDecl = DomFuncDecl
   { domFuncDeclName :: !FuncName
   , domFuncDeclArgs :: !(Seq ArgDecl)
   , domFuncDeclRetTy :: !Ty
-  } deriving stock (Eq, Show, Functor, Foldable, Traversable)
+  } deriving stock (Eq, Show)
 
 data FuncDecl e v = FuncDecl
   { funcDeclName :: !FuncName

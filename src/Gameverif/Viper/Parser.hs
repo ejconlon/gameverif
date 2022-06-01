@@ -652,7 +652,7 @@ predP = lexP $ do
   let x = PredDecl (PredName name) args body
   pure x
 
-domFuncP :: VipParserC p s => VipParserM s (DomFuncDecl Text)
+domFuncP :: VipParserC p s => VipParserM s DomFuncDecl
 domFuncP = lexP $ do
   keywordP "function"
   name <- identP
@@ -693,11 +693,11 @@ axiomP = lexP $ do
   pure x
 
 data DomElt e v =
-    DomEltFunc !(DomFuncDecl v)
+    DomEltFunc !DomFuncDecl
   | DomEltAxiom !(AxiomDecl e v)
   deriving stock (Eq, Show)
 
-splitDomElts :: Seq (DomElt e v) -> (Seq (DomFuncDecl v), Seq (AxiomDecl e v))
+splitDomElts :: Seq (DomElt e v) -> (Seq DomFuncDecl, Seq (AxiomDecl e v))
 splitDomElts = go Empty Empty where
   go !funAcc !axAcc = \case
     Empty -> (funAcc, axAcc)
