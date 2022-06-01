@@ -35,6 +35,7 @@ library
       Gameverif.Viper.Parser
       Gameverif.Viper.Plain
       Gameverif.Viper.Printer
+      Gameverif.Viper.Process
       Gameverif.Viper.Testing
   other-modules:
       Paths_gameverif
@@ -43,7 +44,6 @@ library
   default-extensions:
       BangPatterns
       ConstraintKinds
-      DeriveAnyClass
       DeriveFunctor
       DeriveFoldable
       DeriveGeneric
@@ -61,7 +61,6 @@ library
       Rank2Types
       ScopedTypeVariables
       StandaloneDeriving
-      TemplateHaskell
       TupleSections
       TypeApplications
       TypeOperators
@@ -69,16 +68,23 @@ library
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -fno-warn-unused-top-binds -fwrite-ide-info -hiedir=.hie
   build-depends:
       base >=4.12 && <5
+    , bytestring
     , containers
+    , directory
     , errata
     , exceptions
+    , filepath
     , mtl
     , prettyprinter
     , recursion-schemes
+    , scanf
     , simple-parser
+    , string-qq
+    , temporary
     , text
     , text-builder
     , transformers
+    , typed-process
     , unliftio-core
   default-language: Haskell2010
 
@@ -91,7 +97,6 @@ executable gameverif-exe
   default-extensions:
       BangPatterns
       ConstraintKinds
-      DeriveAnyClass
       DeriveFunctor
       DeriveFoldable
       DeriveGeneric
@@ -109,7 +114,6 @@ executable gameverif-exe
       Rank2Types
       ScopedTypeVariables
       StandaloneDeriving
-      TemplateHaskell
       TupleSections
       TypeApplications
       TypeOperators
@@ -117,17 +121,24 @@ executable gameverif-exe
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -fno-warn-unused-top-binds -fwrite-ide-info -hiedir=.hie -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.12 && <5
+    , bytestring
     , containers
+    , directory
     , errata
     , exceptions
+    , filepath
     , gameverif
     , mtl
     , prettyprinter
     , recursion-schemes
+    , scanf
     , simple-parser
+    , string-qq
+    , temporary
     , text
     , text-builder
     , transformers
+    , typed-process
     , unliftio-core
   default-language: Haskell2010
 
@@ -141,7 +152,6 @@ test-suite gameverif-test
   default-extensions:
       BangPatterns
       ConstraintKinds
-      DeriveAnyClass
       DeriveFunctor
       DeriveFoldable
       DeriveGeneric
@@ -159,7 +169,6 @@ test-suite gameverif-test
       Rank2Types
       ScopedTypeVariables
       StandaloneDeriving
-      TemplateHaskell
       TupleSections
       TypeApplications
       TypeOperators
@@ -167,18 +176,25 @@ test-suite gameverif-test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -fno-warn-unused-top-binds -fwrite-ide-info -hiedir=.hie -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.12 && <5
+    , bytestring
     , containers
+    , directory
     , errata
     , exceptions
+    , filepath
     , gameverif
     , mtl
     , prettyprinter
     , recursion-schemes
+    , scanf
     , simple-parser
+    , string-qq
     , tasty
     , tasty-hunit
+    , temporary
     , text
     , text-builder
     , transformers
+    , typed-process
     , unliftio-core
   default-language: Haskell2010

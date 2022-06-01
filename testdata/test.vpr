@@ -1,3 +1,5 @@
+field blah: Int
+
 domain Foo {
   function bar0(): Int
   function bar1(a: Int): Int
@@ -14,7 +16,7 @@ function baz3(a: Int, b: Int, c: Int): Int { baz2(1, 2) }
 
 predicate pred0() { false }
 predicate pred1(a: Int) { true && (a > 2) }
-predicate pred2(a: Int, b: Int) { forall i: Int :: pred1(i) }
+predicate pred2(a: Int, b: Int) { forall i: Int :: {pred1(i)} pred1(i) }
 predicate pred3(a: Int, b: Int, c: Int) { exists i: Int :: i == 0 }
 
 method meth0() {}

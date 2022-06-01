@@ -30,10 +30,19 @@ data ConsoleEnv = ConsoleEnv
   , ceContents :: !Text
   }
 
+defaultConsoleEnv :: FilePath -> Text -> ConsoleEnv
+defaultConsoleEnv = ConsoleEnv defaultBsty defaultPsty
+
 newConsoleEnv :: FilePath -> IO ConsoleEnv
 newConsoleEnv fp = do
   contents <- TIO.readFile fp
-  pure (ConsoleEnv defaultBsty defaultPsty fp contents)
+  pure (defaultConsoleEnv fp contents)
+
+interactiveFilePath :: FilePath
+interactiveFilePath = "<interactive>"
+
+interactiveConsoleEnv :: Text -> ConsoleEnv
+interactiveConsoleEnv = defaultConsoleEnv interactiveFilePath
 
 renderBlocksM :: [Block] -> ConsoleM ()
 renderBlocksM blocks = do
@@ -57,3 +66,8 @@ withConsoleM :: FilePath -> ConsoleM a -> IO a
 withConsoleM fp act = do
   env <- newConsoleEnv fp
   runConsoleM act env
+
+interactiveConsoleM :: Text -> ConsoleM a -> IO a
+interactiveConsoleM contents act =
+  let env = interactiveConsoleEnv contents
+  in runConsoleM act env
