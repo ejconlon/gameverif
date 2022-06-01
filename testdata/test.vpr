@@ -36,4 +36,24 @@ method meth3() {
   var c: Int
   var d: Int
   c, d := meth2(1, 2)
+
+  if (c > 2)
+  {
+    d := c + 1
+  }
+
+  if (d > 4)
+  {
+    c := d
+  }
+  else
+  {
+    c := d - 1
+  }
+
+  while (c > 0)
+    invariant (c <= d)
+  {
+    c := c - 1
+  }
 }

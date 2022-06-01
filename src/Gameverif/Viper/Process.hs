@@ -3,23 +3,20 @@
 module Gameverif.Viper.Process where
 
 import qualified Data.ByteString.Lazy as BSL
-import Data.Sequence (Seq)
+import qualified Data.ByteString.Lazy.Char8 as BSLC
+import Data.Char (isSpace)
 import Data.Text (Text)
+import qualified Data.Text.Encoding as TE
 import qualified Data.Text.IO as TIO
-import SimpleParser (Span (..), Col (..), Line (..), Parser, TextLabel, TextualStream, decimalParser, LazyCharString (..))
+import Data.Void (Void)
+import SimpleParser (Col (..), LazyCharString (..), Line (..), Parser, Span (..), TextLabel, decimalParser)
+import qualified SimpleParser as SP
 import System.Environment (getEnv)
 import System.Exit (ExitCode (..))
 import System.FilePath ((</>))
 import System.IO (hClose)
 import System.IO.Temp (withSystemTempFile)
 import qualified System.Process.Typed as Q
-import Text.Scanf (Format, (:+) (..), fmt, scanf)
-import qualified Data.Text as T
-import qualified Data.ByteString.Lazy.Char8 as BSLC
-import Data.Char (isSpace)
-import qualified Data.Text.Encoding as TE
-import Data.Void (Void)
-import qualified SimpleParser as SP
 
 data LineCol = LineCol !Line !Col
   deriving stock (Eq, Show)
@@ -36,7 +33,7 @@ failureParser :: Parser TextLabel LazyCharString Void Failure
 failureParser = do
   _ <- SP.dropTokensWhile isSpace
   _ <- SP.matchToken '['
-  _ <- SP.decimalParser
+  _ :: Int <- SP.decimalParser
   _ <- SP.matchToken ']'
   _ <- SP.dropTokensWhile1 Nothing isSpace
   msg <- SP.takeTokensWhile1 Nothing (/= '(')

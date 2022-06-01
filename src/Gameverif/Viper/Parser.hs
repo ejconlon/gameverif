@@ -440,7 +440,7 @@ intP = lexP rawIntP
 
 rawKeywordP, keywordP :: VipParserC p s => Text -> VipParserM s ()
 rawKeywordP t = void (satisfyToken (Just (VipLabelKeyword t)) (keywordPred t))
-keywordP = rawKeywordP
+keywordP = lexP . rawKeywordP
 
 tyP :: VipParserC p s => VipParserM s Ty
 tyP = identP >>= onIdent where

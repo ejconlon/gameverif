@@ -77,7 +77,6 @@ library
     , mtl
     , prettyprinter
     , recursion-schemes
-    , scanf
     , simple-parser
     , string-qq
     , temporary
@@ -131,7 +130,6 @@ executable gameverif-exe
     , mtl
     , prettyprinter
     , recursion-schemes
-    , scanf
     , simple-parser
     , string-qq
     , temporary
@@ -186,7 +184,6 @@ test-suite gameverif-test
     , mtl
     , prettyprinter
     , recursion-schemes
-    , scanf
     , simple-parser
     , string-qq
     , tasty

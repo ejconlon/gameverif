@@ -24,7 +24,6 @@ dependencies:
 - mtl
 - prettyprinter
 - recursion-schemes
-- scanf
 - simple-parser
 - string-qq
 - temporary
