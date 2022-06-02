@@ -5,13 +5,13 @@ module Gameverif.Ecsy.Printer where
 import Data.Foldable (toList)
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
-import Gameverif.Common.Printer (commaLineSep, commaSep, indented, mvsep, nonEmpty)
+import Gameverif.Common.Printer (commaLineSep, commaSep, indented, mhcat, mvsep, nonEmpty)
 import Gameverif.Ecsy.Base (Access (..), ArchDecl (..), ArchName (..), BoundArg (..), BoundRes (..), BuiltOp (..),
                             CompDecl (..), CompField (..), CompName (..), ExpF (..), FieldName (..), FuncDecl (..),
                             FuncName (..), InvDecl (..), InvName (..), Lit (..), LitTy (..), Local (..), MainDecl (..),
-                            MethDecl (..), Op (..), ProgDecl (..), QueryAttr (..), QueryDecl (..), QueryName (..),
-                            ResDecl (..), ResName (..), StmtF (..), StmtSeqF (..), SysDecl (..), SysName (..), Ty (..),
-                            VarName (..), opArity)
+                            MethDecl (..), MethName (unMethName), Op (..), ProgDecl (..), QueryAttr (..),
+                            QueryDecl (..), QueryName (..), ResDecl (..), ResName (..), StmtF (..), StmtSeqF (..),
+                            SysDecl (..), SysName (..), Ty (..), VarName (..), opArity)
 import Gameverif.Ecsy.Plain (Exp (..), PlainDecl, PlainProg, StmtSeq (..))
 import qualified Gameverif.Viper.Plain as VP
 import qualified Gameverif.Viper.Printer as VX
@@ -196,7 +196,7 @@ printBoundRes (BoundRes vn rn ac) =
 printBoundArg :: BoundArg -> Doc ann
 printBoundArg (BoundArg vn ty) = P.hcat [P.pretty (unVarName vn), P.colon, P.space, printTy ty]
 
-printResDecl :: ResDecl VP.Exp v -> Doc ann
+printResDecl :: Pretty v => ResDecl VP.Exp v -> Doc ann
 printResDecl (ResDecl name ctorArgs methods) = mvsep
   [ Just (P.hsep ["resource", P.pretty (unResName name)])
   , Just P.lbrace
@@ -223,8 +223,21 @@ printFuncDecl (FuncDecl name args resources retTy requires ensures mbody) =
             ]
   in mvsep (hd ++ tl)
 
-printMethDecl :: MethDecl VP.Exp v -> Doc ann
-printMethDecl (MethDecl name args resources retTy requires ensures) = mempty -- TODO
+printMethDecl :: Pretty v => MethDecl VP.Exp v -> Doc ann
+printMethDecl (MethDecl name access args retTy requires ensures) = mvsep
+  [ Just $ mhcat
+    [ Just "method"
+    , Just P.space
+    , case access of { AccessMut -> Just ("mut" <> P.space); _ -> Nothing }
+    , Just (P.pretty (unMethName name))
+    , Just (P.parens (commaSep printBoundArg args))
+    , Just P.colon
+    , Just P.space
+    , Just (printTy retTy)
+    ]
+  , fmap indented (VX.printRqs requires)
+  , fmap indented (VX.printEns ensures)
+  ]
 
 printTy :: Ty -> Doc ann
 printTy = \case
