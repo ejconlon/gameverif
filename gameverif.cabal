@@ -26,6 +26,8 @@ library
   exposed-modules:
       Gameverif
       Gameverif.Ecsy.Base
+      Gameverif.Ecsy.Concrete
+      Gameverif.Ecsy.Plain
       Gameverif.Util.Adjunction
       Gameverif.Util.Ann
       Gameverif.Util.Console
