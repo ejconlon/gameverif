@@ -26,6 +26,7 @@ library
   exposed-modules:
       Gameverif
       Gameverif.Common.Lexer
+      Gameverif.Common.Parser
       Gameverif.Ecsy.Base
       Gameverif.Ecsy.Concrete
       Gameverif.Ecsy.Plain
