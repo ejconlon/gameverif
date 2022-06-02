@@ -1,25 +1,25 @@
 module Gameverif.Ecsy.Base where
 
 import Data.Bifunctor (Bifunctor (..))
-import Data.Kind (Type)
-import Data.Map.Strict (Map)
 import Data.Sequence (Seq)
-import Data.Set (Set)
 import Data.String (IsString)
 import Data.Text (Text)
 
 data Lit =
-    LitInt !Integer
+    LitUnit
+  | LitInt !Integer
   | LitBool !Bool
   deriving stock (Eq, Show)
 
 data LitTy =
-    LitTyInt
+    LitTyUnit
+  | LitTyInt
   | LitTyBool
   deriving stock (Eq, Show)
 
 inferLitTy :: Lit -> LitTy
 inferLitTy = \case
+  LitUnit -> LitTyUnit
   LitInt _ -> LitTyInt
   LitBool _ -> LitTyBool
 
@@ -76,6 +76,7 @@ newtype VarName = VarName { unVarName :: Text }
 data BoundRes = BoundRes
   { boundResVar :: !VarName
   , boundResName :: !ResName
+  , boundResAccess :: !Access
   } deriving stock (Eq, Show)
 
 data BoundArg = BoundArg
@@ -122,7 +123,7 @@ resDeclMapProp onProp (ResDecl name ctorArgs methods) =
 
 data SysDecl s v = SysDecl
   { sysDeclName :: !SysName
-  , sysDeclArgs :: !(Seq BoundArg)
+  , sysDeclParams :: !(Seq BoundArg)
   , sysDeclResources :: !(Seq BoundRes)
   , sysDeclQueries :: !(Seq QueryName)
   , sysDeclBody :: !(s v)
@@ -132,9 +133,14 @@ sysDeclMapStmt :: (s v -> t v) -> SysDecl s v -> SysDecl t v
 sysDeclMapStmt onStmt (SysDecl name args resources queries body) =
   SysDecl name args resources queries (onStmt body)
 
+data QueryAttr = QueryAttr
+  { queryAttrComp :: !CompName
+  , queryAttrAccess :: !Access
+  } deriving stock (Eq, Show)
+
 data QueryDecl = QueryDecl
   { queryDeclName :: !QueryName
-  , queryDeclAttrs :: !(Map CompName Access)
+  , queryDeclAttrs :: !(Seq QueryAttr)
   } deriving stock (Eq, Show)
 
 data CompField = CompField
@@ -149,7 +155,7 @@ data CompDecl = CompDecl
 
 data ArchDecl = ArchDecl
   { archDeclName :: !ArchName
-  , archDeclComps :: !(Set CompName)
+  , archDeclComps :: !(Seq CompName)
   } deriving stock (Eq, Show)
 
 data InvDecl u v = InvDecl
@@ -160,14 +166,15 @@ data InvDecl u v = InvDecl
 invDeclMapProp :: (u v -> w v) -> InvDecl u v -> InvDecl w v
 invDeclMapProp onProp (InvDecl name body) = InvDecl name (onProp body)
 
-newtype MainDecl s v = MainDecl
-  { mainDeclBody :: s v
+data MainDecl u s v = MainDecl
+  { mainDeclEnsures :: !(Seq (u v))
+  , mainDeclBody :: !(s v)
   } deriving stock (Eq, Show, Functor, Foldable, Traversable)
 
-mainDeclMapStmt :: (s v -> t v) -> MainDecl s v -> MainDecl t v
-mainDeclMapStmt onStmt (MainDecl body) = MainDecl (onStmt body)
+mainDeclMapBoth :: (u v -> w v) -> (s v -> t v) -> MainDecl u s v -> MainDecl w t v
+mainDeclMapBoth onProp onStmt (MainDecl ensures body) = MainDecl (fmap onProp ensures) (onStmt body)
 
-data ProgDecl (u :: Type -> Type) (s :: Type -> Type) (v :: Type) =
+data ProgDecl u s v =
     ProgDeclFunc !(FuncDecl u s v)
   | ProgDeclRes !(ResDecl u v)
   | ProgDeclSys !(SysDecl s v)
@@ -175,7 +182,7 @@ data ProgDecl (u :: Type -> Type) (s :: Type -> Type) (v :: Type) =
   | ProgDeclComp !CompDecl
   | ProgDeclArch !ArchDecl
   | ProgDeclInv !(InvDecl u v)
-  | ProgDeclMain !(MainDecl s v)
+  | ProgDeclMain !(MainDecl u s v)
   deriving stock (Eq, Show, Functor, Foldable, Traversable)
 
 progDeclMapBoth :: (u v -> w v) -> (s v -> t v) -> ProgDecl u s v -> ProgDecl w t v
@@ -187,7 +194,7 @@ progDeclMapBoth onProp onStmt = \case
   ProgDeclComp cd -> ProgDeclComp cd
   ProgDeclArch ad -> ProgDeclArch ad
   ProgDeclInv vd -> ProgDeclInv (invDeclMapProp onProp vd)
-  ProgDeclMain md -> ProgDeclMain (mainDeclMapStmt onStmt md)
+  ProgDeclMain md -> ProgDeclMain (mainDeclMapBoth onProp onStmt md)
 
 data BuiltOp =
     BuiltOpEquals

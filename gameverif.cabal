@@ -28,9 +28,12 @@ library
       Gameverif.Common.Decode
       Gameverif.Common.Lexer
       Gameverif.Common.Parser
+      Gameverif.Common.Printer
       Gameverif.Ecsy.Base
       Gameverif.Ecsy.Concrete
+      Gameverif.Ecsy.Parser
       Gameverif.Ecsy.Plain
+      Gameverif.Ecsy.Printer
       Gameverif.Util.Adjunction
       Gameverif.Util.Ann
       Gameverif.Util.Console
