@@ -5,7 +5,7 @@ module Gameverif.Viper.Printer where
 import Data.Foldable (toList)
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
-import Gameverif.Common.Printer (commaSep, indented, mhcat, mhsep, mvsep, nonEmpty)
+import Gameverif.Common.Printer (clauses, commaSep, indented, mhcat, mhsep, mvsep, nonEmpty)
 import Gameverif.Viper.Base (Action (..), ArgDecl (..), AxName (..), AxiomDecl (..), BuiltOp (..), DomDecl (..),
                              DomFuncDecl (..), ExpF (..), FieldDecl (..), FieldName (..), FuncDecl (..), FuncName (..),
                              Lit (..), LitTy (..), Local (..), MethDecl (..), MethName (..), Op (..), PredDecl (..),
@@ -184,27 +184,27 @@ printStmtSeq (StmtSeq ssf0) = go1 mempty ssf0 where
             in P.vsep [ifPart, elsPart]
     StmtWhileF cond invs body -> mvsep
       [ Just (P.hsep ["while", P.parens (printExp cond)])
-      , nonEmpty invs (P.vsep (fmap printInv (toList invs)))
+      , fmap indented (printInvs invs)
       , Just P.lbrace
       , Just (indented (printStmtSeq body))
       , Just P.rbrace
       ]
     StmtActionF ac -> printAction ac
 
-printRq :: Pretty v => Exp v -> Doc ann
-printRq e = indented (P.hsep ["requires", P.parens (printExp e)])
+printRqs :: Pretty v => Seq (Exp v) -> Maybe (Doc ann)
+printRqs = clauses printExp "requires"
 
-printEn :: Pretty v => Exp v -> Doc ann
-printEn e = indented (P.hsep ["ensures", P.parens (printExp e)])
+printEns :: Pretty v => Seq (Exp v) -> Maybe (Doc ann)
+printEns = clauses printExp "ensures"
 
-printInv :: Pretty v => Exp v -> Doc ann
-printInv e = indented (P.hsep ["invariant", P.parens (printExp e)])
+printInvs :: Pretty v => Seq (Exp v) -> Maybe (Doc ann)
+printInvs = clauses printExp "invariant"
 
 printFuncDecl :: Pretty v => FuncDecl Exp v -> Doc ann
 printFuncDecl (FuncDecl fn args ret rqs ens body) = mvsep
   [ Just $ P.hcat ["function", P.space, P.pretty (unFuncName fn), P.parens (commaSep printArg args), P.colon, P.space, printTy ret]
-  , nonEmpty rqs (P.vsep (fmap printRq (toList rqs)))
-  , nonEmpty ens (P.vsep (fmap printEn (toList ens)))
+  , fmap indented (printRqs rqs)
+  , fmap indented (printEns ens)
   , Just P.lbrace
   , Just (indented (printExp body))
   , Just P.rbrace
@@ -216,8 +216,8 @@ printMethDecl (MethDecl mn args rets rqs ens body) = mvsep
       [ "method", P.space, P.pretty (unMethName mn), P.parens (commaSep printArg args)
       , if Seq.null rets then mempty else P.hcat [P.space, "returns", P.space, P.parens (commaSep printArg rets)]
       ]
-  , nonEmpty rqs (P.vsep (fmap printRq (toList rqs)))
-  , nonEmpty ens (P.vsep (fmap printEn (toList ens)))
+  , fmap indented (printRqs rqs)
+  , fmap indented (printEns ens)
   , Just P.lbrace
   , Just (indented (printStmtSeq body))
   , Just P.rbrace

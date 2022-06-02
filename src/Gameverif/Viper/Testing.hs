@@ -9,13 +9,13 @@ import Data.Text (Text)
 import Gameverif.Common.Decode (decodeConsole, renderDecodeResult)
 import Gameverif.Util.Console (withConsoleM)
 import Gameverif.Viper.Concrete (forgetAnnProg)
-import Gameverif.Viper.Parser (vipProgramParser)
+import Gameverif.Viper.Parser (vipProgParser)
 import Gameverif.Viper.Plain (PlainProg)
 import Gameverif.Viper.Process (invokeViper)
 
 loadProg :: FilePath -> IO (PlainProg Text)
 loadProg fp = do
-  p <- withConsoleM fp (decodeConsole vipProgramParser >>= renderDecodeResult)
+  p <- withConsoleM fp (decodeConsole vipProgParser >>= renderDecodeResult)
   pure (forgetAnnProg p)
 
 loadTestProg :: IO (PlainProg Text)

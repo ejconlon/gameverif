@@ -25,6 +25,7 @@ import SimpleParser (MatchBlock (..), MatchCase (..), anyToken, betweenParser, g
 type VipExp = AnnExp Extent
 type VipStmtSeq = AnnStmtSeq Extent
 type VipProgDecl a = AnnProgDecl Extent a
+type VipProg a = AnnProg Extent a
 
 opP :: ParserM BuiltOp
 opP = lexP $ popToken >>= \case
@@ -74,7 +75,7 @@ infixBuiltOpP = do
 prefixOpP :: ParserM (Op Text)
 prefixOpP = OpBuilt <$> prefixBuiltOpP <|> OpFree <$> identP
 
-expP ::  ParserM (VipExp Text)
+expP :: ParserM (VipExp Text)
 expP = recExpP where
   recExpP = do
     e <- baseExpP
@@ -128,7 +129,7 @@ expP = recExpP where
     pure x
   triggerP = betweenParser openBraceP closeBraceP (sepByParser recExpP commaP)
 
-actionP ::  ParserM (Action VipExp Text)
+actionP :: ParserM (Action VipExp Text)
 actionP = baseActionP where
   baseActionP = asum
     [ actionInhaleP, actionExhaleP, actionAssertP, actionAssumeP
@@ -155,7 +156,7 @@ actionP = baseActionP where
     let x = ActionAssignField v (FieldName f) e
     pure x
 
-localP ::  ParserM (Local VipExp Text)
+localP :: ParserM (Local VipExp Text)
 localP = do
   keywordP "var"
   name <- identP
@@ -171,7 +172,7 @@ localP = do
   let x = Local (VarName name) ty me
   pure x
 
-stmtP ::  ParserM a -> ParserM (StmtF VipExp Text a)
+stmtP :: ParserM a -> ParserM (StmtF VipExp Text a)
 stmtP p = stmtBaseP where
   stmtBaseP = asum [stmtActionP, stmtLocalF, stmtIfP, stmtWhileP]
   stmtActionP = StmtActionF <$> actionP
@@ -202,13 +203,13 @@ stmtP p = stmtBaseP where
     let x = StmtWhileF g is body
     pure x
 
-stmtSeqP ::  ParserM (VipStmtSeq Text)
+stmtSeqP :: ParserM (VipStmtSeq Text)
 stmtSeqP = recP where
   recP = withPos mkAnnStmtSeq (consP <|> nilP)
   consP = StmtSeqConsF <$> stmtP recP <*> recP
   nilP = lexP $ pure StmtSeqNilF
 
-argP ::  ParserM ArgDecl
+argP :: ParserM ArgDecl
 argP = do
   name <- identP
   colonP
@@ -216,10 +217,10 @@ argP = do
   let x = ArgDecl (VarName name) ty
   pure x
 
-argsP ::  ParserM (Seq ArgDecl)
+argsP :: ParserM (Seq ArgDecl)
 argsP = sepByParser argP commaP
 
-fieldP ::  ParserM FieldDecl
+fieldP :: ParserM FieldDecl
 fieldP = lexP $ do
   keywordP "field"
   name <- identP
@@ -228,16 +229,16 @@ fieldP = lexP $ do
   let x = FieldDecl (FieldName name) ty
   pure x
 
-returnsP ::  ParserM (Seq ArgDecl)
+returnsP :: ParserM (Seq ArgDecl)
 returnsP = do
   keywordP "returns"
   betweenParser openParenP closeParenP argsP
 
-requiresP, ensuresP ::  ParserM (VipExp Text)
+requiresP, ensuresP :: ParserM (VipExp Text)
 requiresP = rawKeywordP "requires" *> expP
 ensuresP = rawKeywordP "ensures" *> expP
 
-methP ::  ParserM (MethDecl VipExp VipStmtSeq Text)
+methP :: ParserM (MethDecl VipExp VipStmtSeq Text)
 methP = lexP $ do
   keywordP "method"
   name <- identP
@@ -249,7 +250,7 @@ methP = lexP $ do
   let x = MethDecl (MethName name) args rets reqs ens body
   pure x
 
-predP ::  ParserM (PredDecl VipExp Text)
+predP :: ParserM (PredDecl VipExp Text)
 predP = lexP $ do
   keywordP "predicate"
   name <- identP
@@ -258,7 +259,7 @@ predP = lexP $ do
   let x = PredDecl (PredName name) args body
   pure x
 
-domFuncP ::  ParserM DomFuncDecl
+domFuncP :: ParserM DomFuncDecl
 domFuncP = lexP $ do
   keywordP "function"
   name <- identP
@@ -268,7 +269,7 @@ domFuncP = lexP $ do
   let x = DomFuncDecl (FuncName name) args ty
   pure x
 
-funcP ::  ParserM (FuncDecl VipExp Text)
+funcP :: ParserM (FuncDecl VipExp Text)
 funcP = lexP $ do
   keywordP "function"
   name <- identP
@@ -281,7 +282,7 @@ funcP = lexP $ do
   let x = FuncDecl (FuncName name) args ty reqs ens body
   pure x
 
-domP ::  ParserM (DomDecl VipExp Text)
+domP :: ParserM (DomDecl VipExp Text)
 domP = lexP $ do
   keywordP "domain"
   name <- identP
@@ -290,7 +291,7 @@ domP = lexP $ do
       x = DomDecl (TyName name) funcs axioms
   pure x
 
-axiomP ::  ParserM (AxiomDecl VipExp Text)
+axiomP :: ParserM (AxiomDecl VipExp Text)
 axiomP = lexP $ do
   keywordP "axiom"
   man <- optionalParser (AxName <$> identP)
@@ -312,14 +313,14 @@ splitDomElts = go Empty Empty where
         DomEltFunc fd -> go (funAcc :|> fd) axAcc elts
         DomEltAxiom ad -> go funAcc (axAcc :|> ad) elts
 
-vipDomEltParser ::  ParserM (DomElt VipExp Text)
+vipDomEltParser :: ParserM (DomElt VipExp Text)
 vipDomEltParser = lookAheadMatch block where
   block = MatchBlock anyToken (fail "invalid domain element")
     [ MatchCase Nothing (keywordPred "function") (fmap DomEltFunc domFuncP)
     , MatchCase Nothing (keywordPred "axiom") (fmap DomEltAxiom axiomP)
     ]
 
-vipDeclParser ::  ParserM (AnnProgDecl Extent Text)
+vipDeclParser :: ParserM (VipProgDecl Text)
 vipDeclParser = withPos mkAnnProgDecl (lookAheadMatch block) where
   block = MatchBlock anyToken (fail "invalid declaration")
     [ MatchCase Nothing (keywordPred "field") (fmap ProgDeclField fieldP)
@@ -329,8 +330,8 @@ vipDeclParser = withPos mkAnnProgDecl (lookAheadMatch block) where
     , MatchCase Nothing (keywordPred "predicate") (fmap ProgDeclPred predP)
     ]
 
-vipProgramParser :: ParserM (AnnProg Extent Text)
-vipProgramParser = greedyStarParser vipDeclParser
+vipProgParser :: ParserM (VipProg Text)
+vipProgParser = greedyStarParser vipDeclParser
 
 vipExpParser :: ParserM (VipExp Text)
 vipExpParser = expP

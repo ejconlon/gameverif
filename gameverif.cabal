@@ -35,6 +35,7 @@ library
       Gameverif.Ecsy.Parser
       Gameverif.Ecsy.Plain
       Gameverif.Ecsy.Printer
+      Gameverif.Ecsy.Testing
       Gameverif.Util.Adjunction
       Gameverif.Util.Ann
       Gameverif.Util.Console

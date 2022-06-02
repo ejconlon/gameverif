@@ -9,9 +9,9 @@ import qualified Data.Map.Strict as Map
 import Data.String (IsString)
 import Data.Text (Text)
 import Data.Typeable (Typeable)
-import Gameverif.Ecsy.Base (ArchDecl (..), ArchName (..), CompDecl (..), CompName (unCompName), FuncDecl (..),
-                            FuncName (..), InvDecl (..), InvName (..), MethDecl, ProgDecl (..), QueryDecl (..),
-                            QueryName (..), ResDecl (..), ResName (..), SysDecl (..), SysName (..), Ty)
+import Gameverif.Ecsy.Base (ArchDecl (..), ArchName (..), CompDecl (..), CompName (..), FuncDecl (..), FuncName (..),
+                            InvDecl (..), InvName (..), MethDecl, ProgDecl (..), QueryDecl (..), QueryName (..),
+                            ResDecl (..), ResName (..), SysDecl (..), SysName (..))
 import Gameverif.Ecsy.Plain (PlainDecl, PlainProg)
 import qualified Gameverif.Viper.Plain as VP
 

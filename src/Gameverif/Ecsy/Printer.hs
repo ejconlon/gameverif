@@ -8,10 +8,10 @@ import qualified Data.Sequence as Seq
 import Gameverif.Common.Printer (commaLineSep, commaSep, indented, mvsep, nonEmpty)
 import Gameverif.Ecsy.Base (Access (..), ArchDecl (..), ArchName (..), BoundArg (..), BoundRes (..), BuiltOp (..),
                             CompDecl (..), CompField (..), CompName (..), ExpF (..), FieldName (..), FuncDecl (..),
-                            InvDecl (..), InvName (..), Lit (..), LitTy (..), Local (..), MainDecl (..), MethDecl (..),
-                            Op (..), ProgDecl (..), QueryAttr (..), QueryDecl (..), QueryName (..), ResDecl (..),
-                            ResName (..), StmtF (..), StmtSeqF (..), SysDecl (..), SysName (..), Ty (..), VarName (..),
-                            opArity)
+                            FuncName (..), InvDecl (..), InvName (..), Lit (..), LitTy (..), Local (..), MainDecl (..),
+                            MethDecl (..), Op (..), ProgDecl (..), QueryAttr (..), QueryDecl (..), QueryName (..),
+                            ResDecl (..), ResName (..), StmtF (..), StmtSeqF (..), SysDecl (..), SysName (..), Ty (..),
+                            VarName (..), opArity)
 import Gameverif.Ecsy.Plain (Exp (..), PlainDecl, PlainProg, StmtSeq (..))
 import qualified Gameverif.Viper.Plain as VP
 import qualified Gameverif.Viper.Printer as VX
@@ -35,7 +35,7 @@ printDecl = \case
 printMainDecl :: Pretty v => MainDecl VP.Exp StmtSeq v -> Doc ann
 printMainDecl (MainDecl ensures body) = mvsep
   [ Just "main"
-  , nonEmpty ensures (P.vsep (fmap VX.printEn (toList ensures)))
+  , VX.printEns ensures
   , Just P.lbrace
   , Just (indented (printStmtSeq body))
   , Just P.rbrace
@@ -122,7 +122,7 @@ printStmtSeq (StmtSeq ssf0) = go1 mempty ssf0 where
             in P.vsep [ifPart, elsPart]
     StmtWhileF cond invs body -> mvsep
       [ Just (P.hsep ["while", P.parens (printExp cond)])
-      , nonEmpty invs (P.vsep (fmap VX.printInv (toList invs)))
+      , fmap indented (VX.printInvs invs)
       , Just P.lbrace
       , Just (indented (printStmtSeq body))
       , Just P.rbrace
@@ -171,12 +171,17 @@ printQueryAttr (QueryAttr name access) =
     AccessConst -> ndoc
     AccessMut -> P.hsep ["mut", ndoc]
 
-printSysDecl :: SysDecl StmtSeq v -> Doc ann
-printSysDecl (SysDecl name params resources queries body) = mvsep
+printSysDecl :: Pretty v => SysDecl VP.Exp StmtSeq v -> Doc ann
+printSysDecl (SysDecl name params resources queries requires ensures body) = mvsep
   [ Just (P.hsep ["system", P.pretty (unSysName name)])
-  , nonEmpty params (P.hsep ["parameters", P.parens (commaSep printBoundArg params)])
-  , nonEmpty resources (P.hsep ["resources", P.parens (commaSep printBoundRes resources)])
-  , nonEmpty queries (P.hsep ["queries", P.parens (commaSep (P.pretty . unQueryName) queries)])
+  , nonEmpty params (indented (P.hsep ["parameters", P.parens (commaSep printBoundArg params)]))
+  , nonEmpty resources (indented (P.hsep ["resources", P.parens (commaSep printBoundRes resources)]))
+  , nonEmpty queries (indented (P.hsep ["queries", P.parens (commaSep (P.pretty . unQueryName) queries)]))
+  , fmap indented (VX.printRqs requires)
+  , fmap indented (VX.printEns ensures)
+  , Just P.lbrace
+  , Just (printStmtSeq body)
+  , Just P.rbrace
   ]
 
 printBoundRes :: BoundRes -> Doc ann
@@ -192,10 +197,31 @@ printBoundArg :: BoundArg -> Doc ann
 printBoundArg (BoundArg vn ty) = P.hcat [P.pretty (unVarName vn), P.colon, P.space, printTy ty]
 
 printResDecl :: ResDecl VP.Exp v -> Doc ann
-printResDecl (ResDecl name ctorArgs methods) = mempty -- TODO
+printResDecl (ResDecl name ctorArgs methods) = mvsep
+  [ Just (P.hsep ["resource", P.pretty (unResName name)])
+  , Just P.lbrace
+  , Just (indented (P.hcat ["init", P.parens (commaSep printBoundArg ctorArgs)]))
+  , nonEmpty methods (indented (P.vsep (fmap printMethDecl (toList methods))))
+  , Just P.rbrace
+  ]
 
-printFuncDecl :: FuncDecl VP.Exp StmtSeq v -> Doc ann
-printFuncDecl (FuncDecl name args resources retTy requires ensures body) = mempty -- TODO
+printFuncDecl :: Pretty v => FuncDecl VP.Exp StmtSeq v -> Doc ann
+printFuncDecl (FuncDecl name args resources retTy requires ensures mbody) =
+  let hd =
+        [ Just (P.hcat ["function", P.space, P.pretty (unFuncName name), P.parens (commaSep printBoundArg args), P.colon, P.space, printTy retTy])
+        , nonEmpty resources (indented (P.hsep ["resources", P.parens (commaSep printBoundRes resources)]))
+        , fmap indented (VX.printRqs requires)
+        , fmap indented (VX.printEns ensures)
+        ]
+      tl =
+        case mbody of
+          Nothing -> []
+          Just body -> fmap Just
+            [ P.lbrace
+            , indented (printStmtSeq body)
+            , P.rbrace
+            ]
+  in mvsep (hd ++ tl)
 
 printMethDecl :: MethDecl VP.Exp v -> Doc ann
 printMethDecl (MethDecl name args resources retTy requires ensures) = mempty -- TODO
@@ -235,7 +261,7 @@ component Position
   y: int
 }
 
-archetype Player
+archetype PlayerType
 {
   Player,
   Position

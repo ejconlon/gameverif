@@ -121,17 +121,19 @@ resDeclMapProp :: (u v -> w v) -> ResDecl u v -> ResDecl w v
 resDeclMapProp onProp (ResDecl name ctorArgs methods) =
   ResDecl name ctorArgs (fmap (methDeclMapProp onProp) methods)
 
-data SysDecl s v = SysDecl
+data SysDecl u s v = SysDecl
   { sysDeclName :: !SysName
   , sysDeclParams :: !(Seq BoundArg)
   , sysDeclResources :: !(Seq BoundRes)
   , sysDeclQueries :: !(Seq QueryName)
+  , sysDeclRequires :: !(Seq (u v))
+  , sysDeclEnsures :: !(Seq (u v))
   , sysDeclBody :: !(s v)
   } deriving stock (Eq, Show, Functor, Foldable, Traversable)
 
-sysDeclMapStmt :: (s v -> t v) -> SysDecl s v -> SysDecl t v
-sysDeclMapStmt onStmt (SysDecl name args resources queries body) =
-  SysDecl name args resources queries (onStmt body)
+sysDeclMapBoth :: (u v -> w v) -> (s v -> t v) -> SysDecl u s v -> SysDecl w t v
+sysDeclMapBoth onProp onStmt (SysDecl name args resources queries requires ensures body) =
+  SysDecl name args resources queries (fmap onProp requires) (fmap onProp ensures) (onStmt body)
 
 data QueryAttr = QueryAttr
   { queryAttrComp :: !CompName
@@ -177,7 +179,7 @@ mainDeclMapBoth onProp onStmt (MainDecl ensures body) = MainDecl (fmap onProp en
 data ProgDecl u s v =
     ProgDeclFunc !(FuncDecl u s v)
   | ProgDeclRes !(ResDecl u v)
-  | ProgDeclSys !(SysDecl s v)
+  | ProgDeclSys !(SysDecl u s v)
   | ProgDeclQuery !QueryDecl
   | ProgDeclComp !CompDecl
   | ProgDeclArch !ArchDecl
@@ -189,7 +191,7 @@ progDeclMapBoth :: (u v -> w v) -> (s v -> t v) -> ProgDecl u s v -> ProgDecl w 
 progDeclMapBoth onProp onStmt = \case
   ProgDeclFunc fd -> ProgDeclFunc (funcDeclMapBoth onProp onStmt fd)
   ProgDeclRes rd -> ProgDeclRes (resDeclMapProp onProp rd)
-  ProgDeclSys sd -> ProgDeclSys (sysDeclMapStmt onStmt sd)
+  ProgDeclSys sd -> ProgDeclSys (sysDeclMapBoth onProp onStmt sd)
   ProgDeclQuery qd -> ProgDeclQuery qd
   ProgDeclComp cd -> ProgDeclComp cd
   ProgDeclArch ad -> ProgDeclArch ad
