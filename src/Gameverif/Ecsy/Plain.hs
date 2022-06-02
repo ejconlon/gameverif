@@ -29,6 +29,6 @@ instance Recursive (StmtSeq v) where
 instance Corecursive (StmtSeq v) where
   embed = StmtSeq
 
-type PlainDecl v = ProgDecl VP.Exp Exp StmtSeq v
+type PlainDecl v = ProgDecl VP.Exp StmtSeq v
 
 type PlainProg v = Seq (PlainDecl v)

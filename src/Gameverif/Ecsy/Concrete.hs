@@ -3,7 +3,7 @@ module Gameverif.Ecsy.Concrete where
 import Data.Bifunctor (Bifunctor (..))
 import Data.Functor.Foldable (Base, Corecursive (..), Recursive (..))
 import Data.Sequence (Seq)
-import Gameverif.Ecsy.Base (ExpF, ProgDecl, StmtSeqF, progDeclMapThree, stmtSeqMapBoth)
+import Gameverif.Ecsy.Base (ExpF, ProgDecl, StmtSeqF, progDeclMapBoth, stmtSeqMapBoth)
 import Gameverif.Ecsy.Plain (Exp (..), PlainDecl, PlainProg, StmtSeq (StmtSeq))
 import Gameverif.Util.Adjunction (WrappedF (..))
 import Gameverif.Util.Ann (AnnF (..), Located (..))
@@ -98,13 +98,13 @@ recallAnnStmtSeq :: p -> StmtSeq v -> AnnStmtSeq p v
 recallAnnStmtSeq p = go where
   go (StmtSeq sf) = AnnStmtSeq (AnnStmtSeqF (AnnF (Located p (fmap go (stmtSeqMapBoth (VC.recallAnnExp p) (recallAnnExp p) sf)))))
 
-type AnnProgDecl p v = Located p (ProgDecl (VC.AnnExp p) (AnnExp p) (AnnStmtSeq p) v)
+type AnnProgDecl p v = Located p (ProgDecl (VC.AnnExp p) (AnnStmtSeq p) v)
 
-mkAnnProgDecl :: p -> ProgDecl (VC.AnnExp p) (AnnExp p) (AnnStmtSeq p) v -> AnnProgDecl p v
+mkAnnProgDecl :: p -> ProgDecl (VC.AnnExp p) (AnnStmtSeq p) v -> AnnProgDecl p v
 mkAnnProgDecl = Located
 
 forgetAnnProgDecl :: AnnProgDecl p v -> PlainDecl v
-forgetAnnProgDecl = progDeclMapThree VC.forgetAnnExp forgetAnnExp forgetAnnStmtSeq . locVal
+forgetAnnProgDecl = progDeclMapBoth VC.forgetAnnExp forgetAnnStmtSeq . locVal
 
 type AnnProg p v = Seq (AnnProgDecl p v)
 

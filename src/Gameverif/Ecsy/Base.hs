@@ -93,6 +93,10 @@ data FuncDecl u s v = FuncDecl
   , funcDeclBody :: !(Maybe (s v))
   } deriving stock (Eq, Show, Functor, Foldable, Traversable)
 
+funcDeclMapBoth :: (u v -> w v) -> (s v -> t v) -> FuncDecl u s v -> FuncDecl w t v
+funcDeclMapBoth onProp onStmt (FuncDecl name args resources retTy requires ensures body) =
+  FuncDecl name args resources retTy (fmap onProp requires) (fmap onProp ensures) (fmap onStmt body)
+
 data MethDecl u v = MethDecl
   { methDeclName :: !MethName
   , methDeclAccess :: !Access
@@ -102,11 +106,19 @@ data MethDecl u v = MethDecl
   , methDeclEnsures :: !(Seq (u v))
   } deriving stock (Eq, Show, Functor, Foldable, Traversable)
 
+methDeclMapProp :: (u v -> w v) -> MethDecl u v -> MethDecl w v
+methDeclMapProp onProp (MethDecl name access args retTy requires ensures) =
+  MethDecl name access args retTy (fmap onProp requires) (fmap onProp ensures)
+
 data ResDecl u v = ResDecl
   { resDeclName :: !ResName
   , resDeclCtorArgs :: !(Seq BoundArg)
   , resDeclMethods :: !(Seq (MethDecl u v))
   } deriving stock (Eq, Show, Functor, Foldable, Traversable)
+
+resDeclMapProp :: (u v -> w v) -> ResDecl u v -> ResDecl w v
+resDeclMapProp onProp (ResDecl name ctorArgs methods) =
+  ResDecl name ctorArgs (fmap (methDeclMapProp onProp) methods)
 
 data SysDecl s v = SysDecl
   { sysDeclName :: !SysName
@@ -115,6 +127,10 @@ data SysDecl s v = SysDecl
   , sysDeclQueries :: !(Seq QueryName)
   , sysDeclBody :: !(s v)
   } deriving stock (Eq, Show, Functor, Foldable, Traversable)
+
+sysDeclMapStmt :: (s v -> t v) -> SysDecl s v -> SysDecl t v
+sysDeclMapStmt onStmt (SysDecl name args resources queries body) =
+  SysDecl name args resources queries (onStmt body)
 
 data QueryDecl = QueryDecl
   { queryDeclName :: !QueryName
@@ -141,11 +157,17 @@ data InvDecl u v = InvDecl
   , invDeclBody :: !(u v)
   } deriving stock (Eq, Show, Functor, Foldable, Traversable)
 
+invDeclMapProp :: (u v -> w v) -> InvDecl u v -> InvDecl w v
+invDeclMapProp onProp (InvDecl name body) = InvDecl name (onProp body)
+
 newtype MainDecl s v = MainDecl
   { mainDeclBody :: s v
   } deriving stock (Eq, Show, Functor, Foldable, Traversable)
 
-data ProgDecl (u :: Type -> Type) (e :: Type -> Type) (s :: Type -> Type) (v :: Type) =
+mainDeclMapStmt :: (s v -> t v) -> MainDecl s v -> MainDecl t v
+mainDeclMapStmt onStmt (MainDecl body) = MainDecl (onStmt body)
+
+data ProgDecl (u :: Type -> Type) (s :: Type -> Type) (v :: Type) =
     ProgDeclFunc !(FuncDecl u s v)
   | ProgDeclRes !(ResDecl u v)
   | ProgDeclSys !(SysDecl s v)
@@ -156,17 +178,16 @@ data ProgDecl (u :: Type -> Type) (e :: Type -> Type) (s :: Type -> Type) (v :: 
   | ProgDeclMain !(MainDecl s v)
   deriving stock (Eq, Show, Functor, Foldable, Traversable)
 
-progDeclMapThree :: (u v -> w v) -> (e v -> f v) -> (s v -> t v) -> ProgDecl u e s v -> ProgDecl w f t v
-progDeclMapThree = error "TODO"
--- progDeclMapThree onProp onExp onStmt = \case
---   ProgDeclFunc fd -> _
---   ProgDeclRes rd -> _
---   ProgDeclSys sd -> _
---   ProgDeclQuery qd -> _
---   ProgDeclComp cd -> _
---   ProgDeclArch ad -> _
---   ProgDeclInv id -> _
---   ProgDeclMain md -> _
+progDeclMapBoth :: (u v -> w v) -> (s v -> t v) -> ProgDecl u s v -> ProgDecl w t v
+progDeclMapBoth onProp onStmt = \case
+  ProgDeclFunc fd -> ProgDeclFunc (funcDeclMapBoth onProp onStmt fd)
+  ProgDeclRes rd -> ProgDeclRes (resDeclMapProp onProp rd)
+  ProgDeclSys sd -> ProgDeclSys (sysDeclMapStmt onStmt sd)
+  ProgDeclQuery qd -> ProgDeclQuery qd
+  ProgDeclComp cd -> ProgDeclComp cd
+  ProgDeclArch ad -> ProgDeclArch ad
+  ProgDeclInv vd -> ProgDeclInv (invDeclMapProp onProp vd)
+  ProgDeclMain md -> ProgDeclMain (mainDeclMapStmt onStmt md)
 
 data BuiltOp =
     BuiltOpEquals
