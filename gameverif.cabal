@@ -25,6 +25,7 @@ source-repository head
 library
   exposed-modules:
       Gameverif
+      Gameverif.Common.Decode
       Gameverif.Common.Lexer
       Gameverif.Common.Parser
       Gameverif.Ecsy.Base
