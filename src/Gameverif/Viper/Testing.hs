@@ -6,15 +6,16 @@ module Gameverif.Viper.Testing where
 
 import Data.String.QQ (s)
 import Data.Text (Text)
+import Gameverif.Common.Decode (decodeConsole, renderDecodeResult)
 import Gameverif.Util.Console (withConsoleM)
 import Gameverif.Viper.Concrete (forgetAnnProg)
-import Gameverif.Viper.Parser (parseVipProgramConsole, renderVipParseResult)
+import Gameverif.Viper.Parser (vipProgramParser)
 import Gameverif.Viper.Plain (PlainProg)
 import Gameverif.Viper.Process (invokeViper)
 
 loadProg :: FilePath -> IO (PlainProg Text)
 loadProg fp = do
-  p <- withConsoleM fp (parseVipProgramConsole >>= renderVipParseResult)
+  p <- withConsoleM fp (decodeConsole vipProgramParser >>= renderDecodeResult)
   pure (forgetAnnProg p)
 
 loadTestProg :: IO (PlainProg Text)
