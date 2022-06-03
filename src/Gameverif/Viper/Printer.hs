@@ -132,11 +132,13 @@ printLit = \case
 
 printLocal :: Pretty v => Local Exp v -> Doc acc
 printLocal (Local vn ty mrhs) = mhcat
-  [ Just (P.pretty (unVarName vn))
+  [ Just "var"
+  , Just P.space
+  , Just (P.pretty (unVarName vn))
   , Just P.colon
   , Just P.space
   , Just (printTy ty)
-  , fmap (\rhs -> P.space <> printExp rhs) mrhs
+  , fmap (\rhs -> P.space <> P.colon <> P.equals <> P.space <> printExp rhs) mrhs
   ]
 
 printAction :: Pretty v => Action Exp v -> Doc acc
@@ -149,7 +151,7 @@ printAction = \case
                   ProofActionInhale -> "inhale"
                   ProofActionExhale -> "exhale"
     in P.hsep [paDoc, printExp ex]
-  ActionAssignVars vs ex -> P.hsep [commaSep P.pretty vs, P.equals, printExp ex]
+  ActionAssignVars vs ex -> P.hsep [commaSep P.pretty vs, P.colon <> P.equals, printExp ex]
   ActionAssignField v fn ex -> P.hcat [P.pretty v, P.dot, P.pretty (unFieldName fn), P.space, P.equals, P.space, printExp ex]
   ActionUnfold ex -> P.hsep ["unfold", printExp ex]
   ActionFold ex -> P.hsep ["fold", printExp ex]

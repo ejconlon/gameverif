@@ -280,18 +280,31 @@ instance Bifunctor ExpF where
 
 data Local e v = Local
   { localName :: !VarName
-  , localType :: !Ty
+  , localAccess :: !Access
+  , localType :: !(Maybe Ty)
   , localBody :: !(e v)
   } deriving stock (Eq, Show, Functor, Foldable, Traversable)
 
 localMapExp :: (e v -> f v) -> Local e v -> Local f v
-localMapExp onExp (Local n t e) = Local n t (onExp e)
+localMapExp onExp (Local n a t e) = Local n a t (onExp e)
+
+data Action u e v =
+    ActionAssert !(u v)
+  | ActionAssignVars !(Seq v) !(e v)
+  | ActionAssignField !v !FieldName !(e v)
+  deriving stock (Eq, Show, Functor, Foldable, Traversable)
+
+actionMapBoth :: (u v -> w v) -> (e v -> f v) -> Action u e v -> Action w f v
+actionMapBoth onProp onExp = \case
+  ActionAssert uv -> ActionAssert (onProp uv)
+  ActionAssignVars vs ev -> ActionAssignVars vs (onExp ev)
+  ActionAssignField v fn ev -> ActionAssignField v fn (onExp ev)
 
 data StmtF u e v a =
     StmtLocalF !(Seq (Local e v)) a
   | StmtIfF !(e v) a !(Maybe a)
   | StmtWhileF !(e v) !(Seq (u v)) a
-  | StmtAssertF !(u v)
+  | StmtActionF !(Action u e v)
   deriving stock (Eq, Show, Functor)
 
 instance (Functor u, Functor e) => Bifunctor (StmtF u e) where
@@ -300,7 +313,7 @@ instance (Functor u, Functor e) => Bifunctor (StmtF u e) where
       StmtLocalF ds a -> StmtLocalF (fmap goDecl ds) (g a)
       StmtIfF e a mb -> StmtIfF (goExp e) (g a) (fmap g mb)
       StmtWhileF e ps a -> StmtWhileF (goExp e) (fmap goProp ps) (g a)
-      StmtAssertF p -> StmtAssertF (fmap f p)
+      StmtActionF k -> StmtActionF (fmap f k)
     goExp = fmap f
     goProp = fmap f
     goDecl = fmap f
@@ -310,7 +323,7 @@ stmtMapBoth onProp onExp = \case
   StmtLocalF ds a -> StmtLocalF (fmap (localMapExp onExp) ds) a
   StmtIfF e a b -> StmtIfF (onExp e) a b
   StmtWhileF e ps a -> StmtWhileF (onExp e) (fmap onProp ps) a
-  StmtAssertF p -> StmtAssertF (onProp p)
+  StmtActionF k -> StmtActionF (actionMapBoth onProp onExp k)
 
 data StmtSeqF u e v a =
     StmtSeqNilF

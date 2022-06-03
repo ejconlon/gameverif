@@ -3,14 +3,23 @@
 module Gameverif.Ecsy.Parser where
 
 import Control.Applicative ((<|>))
+import Control.Monad (guard)
+import Data.Foldable (asum)
+import Data.Sequence (Seq)
+import qualified Data.Sequence as Seq
 import Data.Text (Text)
-import Gameverif.Common.Parser (Extent, ParserM, closeBraceP, identP, keywordP, keywordPred, lexP, openBraceP, withPos)
-import Gameverif.Ecsy.Base (Access (..), ArchDecl (..), ArchName (..), CompDecl, CompName (CompName), FuncDecl,
-                            InvDecl (..), InvName (..), MainDecl (..), ProgDecl (..), QueryAttr (..), QueryDecl (..),
-                            QueryName (..), ResDecl, SysDecl)
-import Gameverif.Ecsy.Concrete (AnnExp (..), AnnProg, AnnProgDecl, AnnStmtSeq (..), mkAnnProgDecl)
+import Gameverif.Common.Lexer (Atom (..), Tok (..))
+import Gameverif.Common.Parser (Extent, ParserM, betweenBracesP, betweenParensP, colonEqualsP, colonP, commaP, identP,
+                                keywordP, keywordPred, lexP, periodP, withPos)
+import Gameverif.Ecsy.Base (Access (..), Action (..), ArchDecl (..), ArchName (..), CompDecl, CompName (..),
+                            FieldName (..), FuncDecl, InvDecl (..), InvName (..), LitTy (..), Local (..), MainDecl (..),
+                            ProgDecl (..), QueryAttr (..), QueryDecl (..), QueryName (..), ResDecl, StmtF (..),
+                            StmtSeqF (..), SysDecl, Ty (..), VarName (..))
+import Gameverif.Ecsy.Concrete (AnnExp (..), AnnProg, AnnProgDecl, AnnStmtSeq (..), mkAnnProgDecl, mkAnnStmtSeq)
 import qualified Gameverif.Viper.Parser as VP
-import SimpleParser (MatchBlock (..), MatchCase (..), anyToken, betweenParser, greedyStarParser, lookAheadMatch)
+import qualified Gameverif.Viper.Parser as VX
+import SimpleParser (MatchBlock (..), MatchCase (..), anyToken, greedyPlusParser, greedyStarParser, lookAheadMatch,
+                     peekToken, sepByParser)
 
 type EcsyExp = AnnExp Extent
 type EcsyStmtSeq = AnnStmtSeq Extent
@@ -39,10 +48,10 @@ compP :: ParserM CompDecl
 compP = error "TODO"
 
 archP :: ParserM ArchDecl
-archP = lexP $ do
+archP = do
   keywordP "archetype"
   name <- archNP
-  comps <- betweenParser openBraceP closeBraceP (greedyStarParser compNP)
+  comps <- betweenBracesP (greedyStarParser compNP)
   let x = ArchDecl name comps
   pure x
 
@@ -52,32 +61,124 @@ queryAttrP = yesMut <|> noMut where
   noMut = fmap (`QueryAttr` AccessConst) compNP
 
 queryP :: ParserM QueryDecl
-queryP = lexP $ do
+queryP = do
   keywordP "query"
   name <- queryNP
-  attrs <- betweenParser openBraceP closeBraceP (greedyStarParser queryAttrP)
+  attrs <- betweenBracesP (greedyStarParser queryAttrP)
   let x = QueryDecl name attrs
   pure x
 
 invP :: ParserM (InvDecl VP.VipExp Text)
-invP = lexP $ do
+invP = do
   keywordP "invariant"
   name <- invNP
-  body <- betweenParser openBraceP closeBraceP VP.vipExpParser
+  body <- betweenBracesP VP.vipExpParser
   let x = InvDecl name body
   pure x
 
 sysP :: ParserM (SysDecl VP.VipExp EcsyStmtSeq Text)
 sysP = error "TODO"
 
+propClauseP :: Text -> ParserM (VP.VipExp Text)
+propClauseP kw = do
+  keywordP kw
+  betweenParensP VP.vipExpParser
+
+propClausesP :: Text -> ParserM (Seq (VP.VipExp Text))
+propClausesP = greedyStarParser . propClauseP
+
 mainP :: ParserM (MainDecl VP.VipExp EcsyStmtSeq Text)
-mainP = error "TODO"
--- mainP = do
---   keywordP "main"
---   ensures <- clausesP "ensures"
---   body <- betweenParser openBraceP closeBraceP stmtSeqP
---   let x = MainDecl ensures body
---   pure x
+mainP = do
+  keywordP "main"
+  ensures <- propClausesP "ensures"
+  body <- betweenBracesP stmtSeqP
+  let x = MainDecl ensures body
+  pure x
+
+expP :: ParserM (EcsyExp Text)
+expP = error "TODO"
+
+accessP :: ParserM Access
+accessP = AccessMut <$ keywordP "mut" <|> AccessConst <$ keywordP "const"
+
+localP :: ParserM (Local EcsyExp Text)
+localP = do
+  access <- accessP
+  name <- identP
+  mty <- do
+    z <- peekToken
+    case z of
+      Just TokColon -> do
+        colonP
+        Just <$> tyP
+      _ -> pure Nothing
+  colonEqualsP
+  ex <- expP
+  let x = Local (VarName name) access mty ex
+  pure x
+
+tyP :: ParserM Ty
+tyP = TyLit LitTyUnit <$ keywordP "Unit"
+  <|> TyLit LitTyInt <$ keywordP "Int"
+  <|> TyLit LitTyBool <$ keywordP "Bool"
+  <|> TyComp . CompName <$> identP
+
+actionP :: ParserM (Action VP.VipExp EcsyExp Text)
+actionP = asum [assertP, assignVarsP, assignFieldP] where
+  assertP = do
+    keywordP "assert"
+    ActionAssert <$> VX.vipExpParser
+  assignVarsP = do
+    vs <- sepByParser identP commaP
+    guard (not (Seq.null vs))
+    colonEqualsP
+    e <- expP
+    let x = ActionAssignVars vs e
+    pure x
+  assignFieldP = do
+    v <- identP
+    periodP
+    f <- identP
+    colonEqualsP
+    e <- expP
+    let x = ActionAssignField v (FieldName f) e
+    pure x
+
+stmtP :: ParserM a -> ParserM (StmtF VP.VipExp EcsyExp Text a)
+stmtP p = stmtBaseP where
+  stmtBaseP = asum [stmtActionP, stmtLocalF, stmtIfP, stmtWhileP]
+  stmtActionP = StmtActionF <$> actionP
+  stmtLocalF = do
+    vars <- greedyPlusParser localP
+    body <- p
+    let x = StmtLocalF vars body
+    pure x
+  stmtIfP = do
+    keywordP "if"
+    g <- betweenParensP expP
+    t <- betweenBracesP p
+    me <- do
+      z <- peekToken
+      case z of
+        Just (TokAtom (AtomIdent "else")) -> do
+          keywordP "else"
+          Just <$> betweenBracesP p
+        _ -> pure Nothing
+    let x = StmtIfF g t me
+    pure x
+  stmtWhileP = do
+    keywordP "while"
+    g <- betweenParensP expP
+    is <- propClausesP "invariant"
+    body <- betweenBracesP p
+    let x = StmtWhileF g is body
+    pure x
+
+stmtSeqP :: ParserM (EcsyStmtSeq Text)
+stmtSeqP = recP where
+  recP = withPos mkAnnStmtSeq (consP <|> nilP)
+  consP = StmtSeqConsF <$> stmtP recP <*> recP
+  nilP = lexP (pure StmtSeqNilF)
 
 ecsyDeclParser :: ParserM (EcsyProgDecl Text)
 ecsyDeclParser = withPos mkAnnProgDecl (lookAheadMatch block) where

@@ -24,6 +24,8 @@ method meth1(a: Int) returns (b: Int)
   requires a > 0
   ensures b > 1
 {
+  var c: Int := 1
+  var d: Bool
   b := a + 1
 }
 method meth2(a: Int, b: Int) returns (c: Int, d: Int)

@@ -7,7 +7,7 @@ import Data.Text (Text)
 import Data.Void (Void)
 import Gameverif.Common.Lexer (Atom (..), Tok (..))
 import SimpleParser (ExplainLabel (..), LexedSpan (..), LexedStream, LinePos, Parser, Span (..), anyToken,
-                     dropTokensWhile, lexemeParser, markParser, satisfyToken, streamViewPos)
+                     betweenParser, dropTokensWhile, lexemeParser, markParser, satisfyToken, streamViewPos)
 import qualified Text.Builder as TB
 
 data Label =
@@ -129,6 +129,11 @@ openBraceP = lexP rawOpenBraceP
 closeBraceP = lexP rawCloseBraceP
 openBracketP = lexP rawOpenBracketP
 closeBracketP = lexP rawCloseBracketP
+
+betweenParensP, betweenBracesP, betweenBracketsP :: ParserM a -> ParserM a
+betweenParensP = betweenParser openParenP closeParenP
+betweenBracesP = betweenParser openBraceP closeBraceP
+betweenBracketsP = betweenParser openBracketP closeBracketP
 
 rawIdentP, identP :: ParserM Text
 rawIdentP = markParser (Just LabelIdent) $ do

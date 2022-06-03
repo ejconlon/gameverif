@@ -9,9 +9,9 @@ import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.Text (Text)
 import Gameverif.Common.Lexer (Atom (..), Tok (..))
-import Gameverif.Common.Parser (Extent, ParserM, closeBraceP, closeBracketP, closeParenP, colonEqualsP, colonP, commaP,
-                                doubleColonP, identP, intP, keywordP, keywordPred, lexP, openBraceP, openBracketP,
-                                openParenP, periodP, questionP, rawKeywordP, withPos)
+import Gameverif.Common.Parser (Extent, ParserM, betweenBracesP, betweenBracketsP, betweenParensP, colonEqualsP, colonP,
+                                commaP, doubleColonP, identP, intP, keywordP, keywordPred, lexP, periodP, questionP,
+                                rawKeywordP, withPos)
 import Gameverif.Viper.Base (Action (..), ArgDecl (..), AxName (..), AxiomDecl (..), BuiltOp (..), DomDecl (..),
                              DomFuncDecl (..), ExpF (..), FieldDecl (..), FieldName (..), Fixity (..), FuncDecl (..),
                              FuncName (..), Lit (..), LitTy (..), Local (..), MethDecl (..), MethName (..), Op (..),
@@ -19,8 +19,8 @@ import Gameverif.Viper.Base (Action (..), ArgDecl (..), AxName (..), AxiomDecl (
                              StmtF (..), StmtSeqF (..), Ty (..), TyName (..), VarName (..), opFixity)
 import Gameverif.Viper.Concrete (AnnExp (..), AnnProg, AnnProgDecl, AnnStmtSeq (..), mkAnnExp, mkAnnProgDecl,
                                  mkAnnStmtSeq)
-import SimpleParser (MatchBlock (..), MatchCase (..), anyToken, betweenParser, greedyPlusParser, greedyStarParser,
-                     lookAheadMatch, optionalParser, peekToken, popToken, sepByParser)
+import SimpleParser (MatchBlock (..), MatchCase (..), anyToken, greedyPlusParser, greedyStarParser, lookAheadMatch,
+                     optionalParser, peekToken, popToken, sepByParser)
 
 type VipExp = AnnExp Extent
 type VipStmtSeq = AnnStmtSeq Extent
@@ -100,18 +100,18 @@ expP = recExpP where
     n <- identP
     let x = ExpFieldF g (FieldName n)
     pure x
-  expParenP = betweenParser openParenP closeParenP recExpP
+  expParenP = betweenParensP recExpP
   expTrueP = tieExpP $ ExpLitF (LitBool True) <$ keywordP "true"
   expFalseP = tieExpP $ ExpLitF (LitBool False) <$ keywordP "false"
   expIntP = tieExpP $ ExpLitF . LitInt <$> intP
   expVarP = tieExpP $ ExpVarF <$> identP
   expPrefixAppP = tieExpP $ do
     op <- prefixOpP
-    args <- betweenParser openParenP closeParenP (sepByParser recExpP commaP)
+    args <- betweenParensP (sepByParser recExpP commaP)
     pure (ExpAppF op args)
   expOldP = tieExpP $ do
     keywordP "old"
-    ExpOldF <$> optionalParser (betweenParser openBracketP closeBracketP identP) <*> betweenParser openParenP closeParenP recExpP
+    ExpOldF <$> optionalParser (betweenBracketsP identP) <*> betweenParensP recExpP
   quantVarP = do
     vn <- identP
     colonP
@@ -127,7 +127,7 @@ expP = recExpP where
     body <- recExpP
     let x = ExpQuantF quant vs tgs body
     pure x
-  triggerP = betweenParser openBraceP closeBraceP (sepByParser recExpP commaP)
+  triggerP = betweenBracesP (sepByParser recExpP commaP)
 
 actionP :: ParserM (Action VipExp Text)
 actionP = baseActionP where
@@ -183,23 +183,23 @@ stmtP p = stmtBaseP where
     pure x
   stmtIfP = do
     keywordP "if"
-    g <- betweenParser openParenP closeParenP expP
-    t <- betweenParser openBraceP closeBraceP p
+    g <- betweenParensP expP
+    t <- betweenBracesP p
     me <- do
       z <- peekToken
       case z of
         Just (TokAtom (AtomIdent "else")) -> do
           keywordP "else"
-          Just <$> betweenParser openBraceP closeBraceP p
+          Just <$> betweenBracesP p
         _ -> pure Nothing
     let x = StmtIfF g t me
     pure x
   invariantP = keywordP "invariant" *> expP
   stmtWhileP = do
     keywordP "while"
-    g <- betweenParser openParenP closeParenP expP
+    g <- betweenParensP expP
     is <- greedyStarParser invariantP
-    body <- betweenParser openBraceP closeBraceP p
+    body <- betweenBracesP p
     let x = StmtWhileF g is body
     pure x
 
@@ -232,7 +232,7 @@ fieldP = lexP $ do
 returnsP :: ParserM (Seq ArgDecl)
 returnsP = do
   keywordP "returns"
-  betweenParser openParenP closeParenP argsP
+  betweenParensP argsP
 
 requiresP, ensuresP :: ParserM (VipExp Text)
 requiresP = rawKeywordP "requires" *> expP
@@ -242,11 +242,11 @@ methP :: ParserM (MethDecl VipExp VipStmtSeq Text)
 methP = lexP $ do
   keywordP "method"
   name <- identP
-  args <- betweenParser openParenP closeParenP argsP
+  args <- betweenParensP argsP
   rets <- returnsP <|> pure Empty
   reqs <- greedyStarParser requiresP
   ens <- greedyStarParser ensuresP
-  body <- betweenParser openBraceP closeBraceP stmtSeqP
+  body <- betweenBracesP stmtSeqP
   let x = MethDecl (MethName name) args rets reqs ens body
   pure x
 
@@ -254,8 +254,8 @@ predP :: ParserM (PredDecl VipExp Text)
 predP = lexP $ do
   keywordP "predicate"
   name <- identP
-  args <- betweenParser openParenP closeParenP argsP
-  body <- betweenParser openBraceP closeBraceP expP
+  args <- betweenParensP argsP
+  body <- betweenBracesP expP
   let x = PredDecl (PredName name) args body
   pure x
 
@@ -263,7 +263,7 @@ domFuncP :: ParserM DomFuncDecl
 domFuncP = lexP $ do
   keywordP "function"
   name <- identP
-  args <- betweenParser openParenP closeParenP argsP
+  args <- betweenParensP argsP
   colonP
   ty <- tyP
   let x = DomFuncDecl (FuncName name) args ty
@@ -273,12 +273,12 @@ funcP :: ParserM (FuncDecl VipExp Text)
 funcP = lexP $ do
   keywordP "function"
   name <- identP
-  args <- betweenParser openParenP closeParenP argsP
+  args <- betweenParensP argsP
   colonP
   ty <- tyP
   reqs <- greedyStarParser requiresP
   ens <- greedyStarParser ensuresP
-  body <- betweenParser openBraceP closeBraceP expP
+  body <- betweenBracesP expP
   let x = FuncDecl (FuncName name) args ty reqs ens body
   pure x
 
@@ -286,7 +286,7 @@ domP :: ParserM (DomDecl VipExp Text)
 domP = lexP $ do
   keywordP "domain"
   name <- identP
-  elts <- betweenParser openBraceP closeBraceP (greedyStarParser vipDomEltParser)
+  elts <- betweenBracesP (greedyStarParser vipDomEltParser)
   let (funcs, axioms) = splitDomElts elts
       x = DomDecl (TyName name) funcs axioms
   pure x
@@ -295,7 +295,7 @@ axiomP :: ParserM (AxiomDecl VipExp Text)
 axiomP = lexP $ do
   keywordP "axiom"
   man <- optionalParser (AxName <$> identP)
-  body <- betweenParser openBraceP closeBraceP expP
+  body <- betweenBracesP expP
   let x = AxiomDecl man body
   pure x
 
