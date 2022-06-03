@@ -3,6 +3,7 @@
 module Gameverif.Common.Parser where
 
 import Control.Monad.State.Strict (gets, void)
+import Data.Maybe (fromMaybe)
 import Data.Text (Text)
 import Data.Void (Void)
 import Gameverif.Common.Lexer (Atom (..), Tok (..))
@@ -161,3 +162,6 @@ optByKeywordP kw p = do
   case tok of
     Just (TokAtom (AtomIdent s)) | s == kw -> keywordP kw *> fmap Just p
     _ -> pure Nothing
+
+defByKeywordP :: Text -> a -> ParserM a -> ParserM a
+defByKeywordP kw def p = fmap (fromMaybe def) (optByKeywordP kw p)

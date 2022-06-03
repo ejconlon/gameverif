@@ -5,28 +5,51 @@ module Gameverif.Ecsy.Parser where
 import Control.Applicative ((<|>))
 import Control.Monad (guard)
 import Data.Foldable (asum)
-import Data.Maybe (fromMaybe)
-import Data.Sequence (Seq)
+import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.Text (Text)
-import Gameverif.Common.Lexer (Tok (..))
-import Gameverif.Common.Parser (Extent, ParserM, betweenBracesP, betweenParensP, colonEqualsP, colonP, commaP, identP,
-                                keywordP, keywordPred, lexP, optByKeywordP, periodP, withPos)
+import Gameverif.Common.Lexer (Atom (..), Tok (..))
+import Gameverif.Common.Parser (Extent, ParserM, betweenBracesP, betweenParensP, colonEqualsP, colonP, commaP,
+                                defByKeywordP, identP, intP, keywordP, keywordPred, lexP, optByKeywordP, periodP,
+                                questionP, withPos)
 import Gameverif.Ecsy.Base (Access (..), Action (..), ArchDecl (..), ArchName (..), BoundArg (..), BoundRes (..),
-                            CompDecl (..), CompField (..), CompName (..), FieldName (..), FuncDecl (..), FuncName (..),
-                            InvDecl (..), InvName (..), LitTy (..), Local (..), MainDecl (..), MethDecl (..),
-                            MethName (..), ProgDecl (..), QueryAttr (..), QueryDecl (..), QueryName (..), ResDecl (..),
-                            ResName (..), StmtF (..), StmtSeqF (..), SysDecl (..), SysName (..), Ty (..), VarName (..))
-import Gameverif.Ecsy.Concrete (AnnExp (..), AnnProg, AnnProgDecl, AnnStmtSeq (..), mkAnnProgDecl, mkAnnStmtSeq)
+                            BuiltOp (..), CompDecl (..), CompField (..), CompName (..), ExpF (..), FieldName (..),
+                            Fixity (..), FuncDecl (..), FuncName (..), InvDecl (..), InvName (..), Lit (..), LitTy (..),
+                            Local (..), MainDecl (..), MethDecl (..), MethName (..), Op (..), ProgDecl (..),
+                            QueryAttr (..), QueryDecl (..), QueryName (..), ResDecl (..), ResName (..), StmtF (..),
+                            StmtSeqF (..), SysDecl (..), SysName (..), Ty (..), VarName (..), opFixity)
+import Gameverif.Ecsy.Concrete (AnnExp (..), AnnProg, AnnProgDecl, AnnStmtSeq (..), mkAnnExp, mkAnnProgDecl,
+                                mkAnnStmtSeq)
 import qualified Gameverif.Viper.Parser as VP
 import qualified Gameverif.Viper.Parser as VX
 import SimpleParser (MatchBlock (..), MatchCase (..), anyToken, greedyPlusParser, greedyStarParser, lookAheadMatch,
-                     peekToken, sepByParser)
+                     peekToken, popToken, sepByParser)
 
 type EcsyExp = AnnExp Extent
 type EcsyStmtSeq = AnnStmtSeq Extent
 type EcsyProgDecl a = AnnProgDecl Extent a
 type EcsyProg a = AnnProg Extent a
+
+opP :: ParserM BuiltOp
+opP = lexP $ popToken >>= \case
+  Just (TokAtom (AtomBuiltOp op)) ->
+    case op of
+      "==" -> pure BuiltOpEquals
+      "!=" -> pure BuiltOpNotEquals
+      "&&" -> pure BuiltOpAnd
+      "||" -> pure BuiltOpOr
+      "!" -> pure BuiltOpNot
+      "+" -> pure BuiltOpAdd
+      "-" -> pure BuiltOpSub
+      "*" -> pure BuiltOpMul
+      "/" -> pure BuiltOpDiv
+      "%" -> pure BuiltOpMod
+      ">" -> pure BuiltOpGt
+      ">=" -> pure BuiltOpGte
+      "<" -> pure BuiltOpLt
+      "<=" -> pure BuiltOpLte
+      _ -> fail "invalid built op (unrecognized)"
+  _ -> fail "invalid built op (not lexed)"
 
 funcNP :: ParserM FuncName
 funcNP = fmap FuncName identP
@@ -71,8 +94,7 @@ boundArgsP = sepByParser boundArgP commaP
 
 boundResP :: ParserM BoundRes
 boundResP = do
-  mac <- optByKeywordP "mut" (pure AccessMut)
-  let ac = fromMaybe AccessConst mac
+  ac <- defByKeywordP "mut" AccessConst (pure AccessMut)
   name <- varNP
   colonP
   res <- resNP
@@ -89,8 +111,7 @@ funcP = do
   args <- betweenParensP boundArgsP
   colonP
   retTy <- tyP
-  mresources <- optClauseP "resources" boundResesP
-  let resources = fromMaybe Seq.empty mresources
+  resources <- defClauseP "resources" Empty boundResesP
   requires <- propClausesP "requires"
   ensures <- propClausesP "ensures"
   mbody <- do
@@ -104,8 +125,7 @@ funcP = do
 methDeclP :: ParserM (MethDecl VP.VipExp Text)
 methDeclP = do
   keywordP "method"
-  mac <- optByKeywordP "mut" (pure AccessMut)
-  let ac = fromMaybe AccessConst mac
+  ac <- defByKeywordP "mut" AccessConst (pure AccessMut)
   name <- methNP
   args <- betweenParensP boundArgsP
   colonP
@@ -119,8 +139,7 @@ resP :: ParserM (ResDecl VP.VipExp Text)
 resP = do
   keywordP "resource"
   name <- resNP
-  mparams <- optClauseP "parameters" boundArgsP
-  let params = fromMaybe Seq.empty mparams
+  params <- defClauseP "parameters" Empty boundArgsP
   requires <- propClausesP "requires"
   meths <- betweenBracesP (greedyStarParser methDeclP)
   let x = ResDecl name params requires meths
@@ -178,12 +197,9 @@ sysP :: ParserM (SysDecl VP.VipExp EcsyStmtSeq Text)
 sysP = do
   keywordP "system"
   name <- sysNP
-  mparams <- optClauseP "parameters" boundArgsP
-  let params = fromMaybe Seq.empty mparams
-  mresources <- optClauseP "resources" boundResesP
-  let resources = fromMaybe Seq.empty mresources
-  mqueries <- optClauseP "queries" queriesP
-  let queries = fromMaybe Seq.empty mqueries
+  params <- defClauseP "parameters" Empty boundArgsP
+  resources <- defClauseP "resources" Empty boundResesP
+  queries <- defClauseP "queries" Empty queriesP
   requires <- propClausesP "requires"
   ensures <- propClausesP "ensures"
   body <- betweenBracesP stmtSeqP
@@ -198,6 +214,9 @@ clauseP kw p = do
 optClauseP :: Text -> ParserM a -> ParserM (Maybe a)
 optClauseP kw p = optByKeywordP kw (betweenParensP p)
 
+defClauseP :: Text -> a -> ParserM a -> ParserM a
+defClauseP kw def p = defByKeywordP kw def (betweenParensP p)
+
 clausesP :: Text -> ParserM a -> ParserM (Seq a)
 clausesP kw p = greedyStarParser (clauseP kw p)
 
@@ -210,16 +229,65 @@ propClausesP kw = clausesP kw VP.vipExpParser
 mainP :: ParserM (MainDecl VP.VipExp EcsyStmtSeq Text)
 mainP = do
   keywordP "main"
-  mparams <- optClauseP "parameters" boundArgsP
-  let params = fromMaybe Seq.empty mparams
+  params <- defClauseP "parameters" Empty boundArgsP
   requires <- propClausesP "requires"
   ensures <- propClausesP "ensures"
   body <- betweenBracesP stmtSeqP
   let x = MainDecl params requires ensures body
   pure x
 
+prefixBuiltOpP :: ParserM BuiltOp
+prefixBuiltOpP = do
+  op <- opP
+  if opFixity op == FixityPre
+    then pure op
+    else fail "invalid built op (not prefix)"
+
+infixBuiltOpP :: ParserM BuiltOp
+infixBuiltOpP = do
+  op <- opP
+  if opFixity op == FixityIn
+    then pure op
+    else fail "invalid built op (not infix)"
+
+prefixOpP :: ParserM (Op Text)
+prefixOpP = OpBuilt <$> prefixBuiltOpP <|> OpFree <$> identP
+
 expP :: ParserM (EcsyExp Text)
-expP = error "TODO"
+expP = recExpP where
+  recExpP = do
+    e <- baseExpP
+    contExpP e <|> pure e
+  baseExpP = asum [expParenP, expUnitP, expTrueP, expFalseP, expIntP, expPrefixAppP, expVarP]
+  contExpP e = asum [contCondExpP e, contInfixAppP e, contFieldExpP e]
+  tieExpP = withPos mkAnnExp
+  contCondExpP g = tieExpP $ do
+    questionP
+    t <- recExpP
+    colonP
+    e <- recExpP
+    let x = ExpCondF g t e
+    pure x
+  contInfixAppP g = tieExpP $ do
+    op <- infixBuiltOpP
+    e <- recExpP
+    let x = ExpAppF (OpBuilt op) (g :<| e :<| Empty)
+    pure x
+  contFieldExpP g = tieExpP $ do
+    periodP
+    n <- identP
+    let x = ExpFieldF g (FieldName n)
+    pure x
+  expParenP = betweenParensP recExpP
+  expUnitP = tieExpP $ ExpLitF LitUnit <$ keywordP "unit"
+  expTrueP = tieExpP $ ExpLitF (LitBool True) <$ keywordP "true"
+  expFalseP = tieExpP $ ExpLitF (LitBool False) <$ keywordP "false"
+  expIntP = tieExpP $ ExpLitF . LitInt <$> intP
+  expVarP = tieExpP $ ExpVarF <$> identP
+  expPrefixAppP = tieExpP $ do
+    op <- prefixOpP
+    args <- betweenParensP (sepByParser recExpP commaP)
+    pure (ExpAppF op args)
 
 accessP :: ParserM Access
 accessP = AccessMut <$ keywordP "mut" <|> AccessConst <$ keywordP "const"
