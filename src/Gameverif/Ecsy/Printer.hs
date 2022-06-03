@@ -5,7 +5,7 @@ module Gameverif.Ecsy.Printer where
 import Data.Foldable (toList)
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
-import Gameverif.Common.Printer (commaLineSep, commaSep, indented, mhcat, mvsep, nonEmpty)
+import Gameverif.Common.Printer (commaSep, indented, mhcat, mvsep, nonEmpty)
 import Gameverif.Ecsy.Base (Access (..), Action (..), ArchDecl (..), ArchName (..), BoundArg (..), BoundRes (..),
                             BuiltOp (..), CompDecl (..), CompField (..), CompName (..), ExpF (..), FieldName (..),
                             FuncDecl (..), FuncName (..), InvDecl (..), InvName (..), Lit (..), LitTy (..), Local (..),
@@ -33,9 +33,11 @@ printDecl = \case
   ProgDeclMain md -> printMainDecl md
 
 printMainDecl :: Pretty v => MainDecl VP.Exp StmtSeq v -> Doc ann
-printMainDecl (MainDecl ensures body) = mvsep
+printMainDecl (MainDecl params requires ensures body) = mvsep
   [ Just "main"
-  , VX.printEns ensures
+  , nonEmpty params (indented (P.hsep ["parameters", P.parens (commaSep printBoundArg params)]))
+  , fmap indented (VX.printRqs requires)
+  , fmap indented (VX.printEns ensures)
   , Just P.lbrace
   , Just (indented (printStmtSeq body))
   , Just P.rbrace
@@ -159,7 +161,7 @@ printArchDecl :: ArchDecl -> Doc ann
 printArchDecl (ArchDecl name comps) = P.vsep
   [ P.hsep ["archetype", P.pretty (unArchName name)]
   , P.lbrace
-  , indented (commaLineSep (P.pretty . unCompName) comps)
+  , indented (P.vsep (fmap (P.pretty . unCompName) (toList comps)))
   , P.rbrace
   ]
 
@@ -167,7 +169,7 @@ printCompDecl :: CompDecl -> Doc ann
 printCompDecl (CompDecl name fields) = P.vsep
   [ P.hsep ["component", P.pretty (unCompName name)]
   , P.lbrace
-  , indented (commaLineSep printCompField fields)
+  , indented (P.vsep (fmap printCompField (toList fields)))
   , P.rbrace
   ]
 
@@ -178,7 +180,7 @@ printQueryDecl :: QueryDecl -> Doc ann
 printQueryDecl (QueryDecl name attrs) = P.vsep
   [ P.hsep ["query", P.pretty (unQueryName name)]
   , P.lbrace
-  , indented (commaLineSep printQueryAttr attrs)
+  , indented (P.vsep (fmap printQueryAttr (toList attrs)))
   , P.rbrace
   ]
 
@@ -203,7 +205,7 @@ printSysDecl (SysDecl name params resources queries requires ensures body) = mvs
   ]
 
 printBoundRes :: BoundRes -> Doc ann
-printBoundRes (BoundRes vn rn ac) =
+printBoundRes (BoundRes vn ac rn) =
   let ndoc = P.pretty (unVarName vn)
       rdoc = P.pretty (unResName rn)
       tl = P.hcat [ndoc, P.colon, P.space, rdoc]
@@ -215,16 +217,17 @@ printBoundArg :: BoundArg -> Doc ann
 printBoundArg (BoundArg vn ty) = P.hcat [P.pretty (unVarName vn), P.colon, P.space, printTy ty]
 
 printResDecl :: Pretty v => ResDecl VP.Exp v -> Doc ann
-printResDecl (ResDecl name ctorArgs methods) = mvsep
+printResDecl (ResDecl name params requires methods) = mvsep
   [ Just (P.hsep ["resource", P.pretty (unResName name)])
+  , nonEmpty params (indented (P.hsep ["parameters", P.parens (commaSep printBoundArg params)]))
+  , fmap indented (VX.printRqs requires)
   , Just P.lbrace
-  , Just (indented (P.hcat ["init", P.parens (commaSep printBoundArg ctorArgs)]))
   , nonEmpty methods (indented (P.vsep (fmap printMethDecl (toList methods))))
   , Just P.rbrace
   ]
 
 printFuncDecl :: Pretty v => FuncDecl VP.Exp StmtSeq v -> Doc ann
-printFuncDecl (FuncDecl name args resources retTy requires ensures mbody) =
+printFuncDecl (FuncDecl name args retTy resources requires ensures mbody) =
   let hd =
         [ Just (P.hcat ["function", P.space, P.pretty (unFuncName name), P.parens (commaSep printBoundArg args), P.colon, P.space, printTy retTy])
         , nonEmpty resources (indented (P.hsep ["resources", P.parens (commaSep printBoundRes resources)]))
@@ -278,9 +281,10 @@ function foo(value: int): int
   $stmts
 }
 
-resource Screen {
-  init(value: int)
-
+resource Screen
+  parameters (value: int)
+  requires ($prop)
+{
   method mut drawCircle(x: int, y: int, r: int): unit
     requires ($prop)
     ensures ($prop)
@@ -288,13 +292,13 @@ resource Screen {
 
 component Position
 {
-  x: int,
+  x: int
   y: int
 }
 
 archetype PlayerType
 {
-  Player,
+  Player
   Position
 }
 
@@ -302,7 +306,7 @@ invariant name { $exp }
 
 query Blah
 {
-  mut Player,
+  mut Player
   Position
 }
 
@@ -317,7 +321,9 @@ system movement
 }
 
 main
-ensures ($prop)
+  parameters (value: int)
+  requires ($prop)
+  ensures ($prop)
 {
   $stmts
 }

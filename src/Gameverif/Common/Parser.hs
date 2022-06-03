@@ -7,7 +7,7 @@ import Data.Text (Text)
 import Data.Void (Void)
 import Gameverif.Common.Lexer (Atom (..), Tok (..))
 import SimpleParser (ExplainLabel (..), LexedSpan (..), LexedStream, LinePos, Parser, Span (..), anyToken,
-                     betweenParser, dropTokensWhile, lexemeParser, markParser, satisfyToken, streamViewPos)
+                     betweenParser, dropTokensWhile, lexemeParser, markParser, peekToken, satisfyToken, streamViewPos)
 import qualified Text.Builder as TB
 
 data Label =
@@ -154,3 +154,10 @@ intP = lexP rawIntP
 rawKeywordP, keywordP :: Text -> ParserM ()
 rawKeywordP t = void (satisfyToken (Just (LabelKeyword t)) (keywordPred t))
 keywordP = lexP . rawKeywordP
+
+optByKeywordP :: Text -> ParserM a -> ParserM (Maybe a)
+optByKeywordP kw p = do
+  tok <- peekToken
+  case tok of
+    Just (TokAtom (AtomIdent s)) | s == kw -> keywordP kw *> fmap Just p
+    _ -> pure Nothing

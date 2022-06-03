@@ -5,15 +5,17 @@ module Gameverif.Ecsy.Parser where
 import Control.Applicative ((<|>))
 import Control.Monad (guard)
 import Data.Foldable (asum)
+import Data.Maybe (fromMaybe)
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
 import Data.Text (Text)
-import Gameverif.Common.Lexer (Atom (..), Tok (..))
+import Gameverif.Common.Lexer (Tok (..))
 import Gameverif.Common.Parser (Extent, ParserM, betweenBracesP, betweenParensP, colonEqualsP, colonP, commaP, identP,
-                                keywordP, keywordPred, lexP, periodP, withPos)
-import Gameverif.Ecsy.Base (Access (..), Action (..), ArchDecl (..), ArchName (..), CompDecl, CompName (..),
-                            FieldName (..), FuncDecl, InvDecl (..), InvName (..), LitTy (..), Local (..), MainDecl (..),
-                            ProgDecl (..), QueryAttr (..), QueryDecl (..), QueryName (..), ResDecl, StmtF (..),
+                                keywordP, keywordPred, lexP, optByKeywordP, periodP, withPos)
+import Gameverif.Ecsy.Base (Access (..), Action (..), ArchDecl (..), ArchName (..), BoundArg (..), BoundRes (..),
+                            CompDecl (..), CompField (..), CompName (..), FieldName (..), FuncDecl (..), FuncName (..),
+                            InvDecl (..), InvName (..), LitTy (..), Local (..), MainDecl (..), MethDecl, ProgDecl (..),
+                            QueryAttr (..), QueryDecl (..), QueryName (..), ResDecl (..), ResName (..), StmtF (..),
                             StmtSeqF (..), SysDecl, Ty (..), VarName (..))
 import Gameverif.Ecsy.Concrete (AnnExp (..), AnnProg, AnnProgDecl, AnnStmtSeq (..), mkAnnProgDecl, mkAnnStmtSeq)
 import qualified Gameverif.Viper.Parser as VP
@@ -25,6 +27,9 @@ type EcsyExp = AnnExp Extent
 type EcsyStmtSeq = AnnStmtSeq Extent
 type EcsyProgDecl a = AnnProgDecl Extent a
 type EcsyProg a = AnnProg Extent a
+
+funcNP :: ParserM FuncName
+funcNP = fmap FuncName identP
 
 queryNP :: ParserM QueryName
 queryNP = fmap QueryName identP
@@ -38,14 +43,87 @@ invNP = fmap InvName identP
 archNP :: ParserM ArchName
 archNP = fmap ArchName identP
 
+fieldNP :: ParserM FieldName
+fieldNP = fmap FieldName identP
+
+varNP :: ParserM VarName
+varNP = fmap VarName identP
+
+resNP :: ParserM ResName
+resNP = fmap ResName identP
+
+boundArgP :: ParserM BoundArg
+boundArgP = do
+  name <- varNP
+  colonP
+  ty <- tyP
+  let x = BoundArg name ty
+  pure x
+
+boundArgsP :: ParserM (Seq BoundArg)
+boundArgsP = sepByParser boundArgP commaP
+
+boundResP :: ParserM BoundRes
+boundResP = do
+  mac <- optByKeywordP "mut" (pure AccessMut)
+  let ac = fromMaybe AccessConst mac
+  name <- varNP
+  colonP
+  res <- resNP
+  let x = BoundRes name ac res
+  pure x
+
+boundResesP :: ParserM (Seq BoundRes)
+boundResesP = sepByParser boundResP commaP
+
 funcP :: ParserM (FuncDecl VP.VipExp EcsyStmtSeq Text)
-funcP = error "TODO"
+funcP = do
+  keywordP "function"
+  name <- funcNP
+  args <- betweenParensP boundArgsP
+  colonP
+  retTy <- tyP
+  mresources <- optClauseP "resources" boundResesP
+  let resources = fromMaybe Seq.empty mresources
+  requires <- propClausesP "requires"
+  ensures <- propClausesP "ensures"
+  mbody <- do
+    z <- peekToken
+    case z of
+      Just TokOpenBrace -> Just <$> betweenBracesP stmtSeqP
+      _ -> pure Nothing
+  let x = FuncDecl name args retTy resources requires ensures mbody
+  pure x
+
+methDeclP :: ParserM (MethDecl VP.VipExp Text)
+methDeclP = error "TODO"
 
 resP :: ParserM (ResDecl VP.VipExp Text)
-resP = error "TODO"
+resP = do
+  keywordP "resource"
+  name <- resNP
+  mparams <- optClauseP "parameters" boundArgsP
+  let params = fromMaybe Seq.empty mparams
+  requires <- propClausesP "requires"
+  meths <- betweenBracesP (greedyStarParser methDeclP)
+  let x = ResDecl name params requires meths
+  pure x
+
+fieldP :: ParserM CompField
+fieldP = do
+  name <- fieldNP
+  colonP
+  ty <- tyP
+  let x = CompField name ty
+  pure x
 
 compP :: ParserM CompDecl
-compP = error "TODO"
+compP = do
+  keywordP "component"
+  name <- compNP
+  fields <- betweenBracesP (greedyStarParser fieldP)
+  let x = CompDecl name fields
+  pure x
 
 archP :: ParserM ArchDecl
 archP = do
@@ -79,20 +157,32 @@ invP = do
 sysP :: ParserM (SysDecl VP.VipExp EcsyStmtSeq Text)
 sysP = error "TODO"
 
-propClauseP :: Text -> ParserM (VP.VipExp Text)
-propClauseP kw = do
+clauseP :: Text -> ParserM a -> ParserM a
+clauseP kw p = do
   keywordP kw
-  betweenParensP VP.vipExpParser
+  betweenParensP p
+
+optClauseP :: Text -> ParserM a -> ParserM (Maybe a)
+optClauseP kw p = optByKeywordP kw (betweenParensP p)
+
+clausesP :: Text -> ParserM a -> ParserM (Seq a)
+clausesP kw p = greedyStarParser (clauseP kw p)
+
+propClauseP :: Text -> ParserM (VP.VipExp Text)
+propClauseP kw = clauseP kw VP.vipExpParser
 
 propClausesP :: Text -> ParserM (Seq (VP.VipExp Text))
-propClausesP = greedyStarParser . propClauseP
+propClausesP kw = clausesP kw VP.vipExpParser
 
 mainP :: ParserM (MainDecl VP.VipExp EcsyStmtSeq Text)
 mainP = do
   keywordP "main"
+  mparams <- optClauseP "parameters" boundArgsP
+  let params = fromMaybe Seq.empty mparams
+  requires <- propClausesP "requires"
   ensures <- propClausesP "ensures"
   body <- betweenBracesP stmtSeqP
-  let x = MainDecl ensures body
+  let x = MainDecl params requires ensures body
   pure x
 
 expP :: ParserM (EcsyExp Text)
@@ -157,13 +247,7 @@ stmtP p = stmtBaseP where
     keywordP "if"
     g <- betweenParensP expP
     t <- betweenBracesP p
-    me <- do
-      z <- peekToken
-      case z of
-        Just (TokAtom (AtomIdent "else")) -> do
-          keywordP "else"
-          Just <$> betweenBracesP p
-        _ -> pure Nothing
+    me <- optByKeywordP "else" (betweenBracesP p)
     let x = StmtIfF g t me
     pure x
   stmtWhileP = do

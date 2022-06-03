@@ -75,8 +75,8 @@ newtype VarName = VarName { unVarName :: Text }
 
 data BoundRes = BoundRes
   { boundResVar :: !VarName
-  , boundResName :: !ResName
   , boundResAccess :: !Access
+  , boundResName :: !ResName
   } deriving stock (Eq, Show)
 
 data BoundArg = BoundArg
@@ -87,16 +87,16 @@ data BoundArg = BoundArg
 data FuncDecl u s v = FuncDecl
   { funcDeclName :: !FuncName
   , funcDeclArgs :: !(Seq BoundArg)
-  , funcDeclResources :: !(Seq BoundRes)
   , funcDeclRetTy :: !Ty
+  , funcDeclResources :: !(Seq BoundRes)
   , funcDeclRequires :: !(Seq (u v))
   , funcDeclEnsures :: !(Seq (u v))
   , funcDeclBody :: !(Maybe (s v))
   } deriving stock (Eq, Show, Functor, Foldable, Traversable)
 
 funcDeclMapBoth :: (u v -> w v) -> (s v -> t v) -> FuncDecl u s v -> FuncDecl w t v
-funcDeclMapBoth onProp onStmt (FuncDecl name args resources retTy requires ensures body) =
-  FuncDecl name args resources retTy (fmap onProp requires) (fmap onProp ensures) (fmap onStmt body)
+funcDeclMapBoth onProp onStmt (FuncDecl name args retTy resources requires ensures body) =
+  FuncDecl name args retTy resources (fmap onProp requires) (fmap onProp ensures) (fmap onStmt body)
 
 data MethDecl u v = MethDecl
   { methDeclName :: !MethName
@@ -113,13 +113,14 @@ methDeclMapProp onProp (MethDecl name access args retTy requires ensures) =
 
 data ResDecl u v = ResDecl
   { resDeclName :: !ResName
-  , resDeclCtorArgs :: !(Seq BoundArg)
+  , resDeclParams :: !(Seq BoundArg)
+  , resDeclRequires :: !(Seq (u v))
   , resDeclMethods :: !(Seq (MethDecl u v))
   } deriving stock (Eq, Show, Functor, Foldable, Traversable)
 
 resDeclMapProp :: (u v -> w v) -> ResDecl u v -> ResDecl w v
-resDeclMapProp onProp (ResDecl name ctorArgs methods) =
-  ResDecl name ctorArgs (fmap (methDeclMapProp onProp) methods)
+resDeclMapProp onProp (ResDecl name params requires methods) =
+  ResDecl name params (fmap onProp requires) (fmap (methDeclMapProp onProp) methods)
 
 data SysDecl u s v = SysDecl
   { sysDeclName :: !SysName
@@ -169,12 +170,15 @@ invDeclMapProp :: (u v -> w v) -> InvDecl u v -> InvDecl w v
 invDeclMapProp onProp (InvDecl name body) = InvDecl name (onProp body)
 
 data MainDecl u s v = MainDecl
-  { mainDeclEnsures :: !(Seq (u v))
+  { mainDeclParams :: !(Seq BoundArg)
+  , mainDeclRequires :: !(Seq (u v))
+  , mainDeclEnsures :: !(Seq (u v))
   , mainDeclBody :: !(s v)
   } deriving stock (Eq, Show, Functor, Foldable, Traversable)
 
 mainDeclMapBoth :: (u v -> w v) -> (s v -> t v) -> MainDecl u s v -> MainDecl w t v
-mainDeclMapBoth onProp onStmt (MainDecl ensures body) = MainDecl (fmap onProp ensures) (onStmt body)
+mainDeclMapBoth onProp onStmt (MainDecl params requires ensures body) =
+  MainDecl params (fmap onProp requires) (fmap onProp ensures) (onStmt body)
 
 data ProgDecl u s v =
     ProgDeclFunc !(FuncDecl u s v)
