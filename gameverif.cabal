@@ -31,10 +31,10 @@ library
       Gameverif.Common.Printer
       Gameverif.Ecsy.Base
       Gameverif.Ecsy.Concrete
-      Gameverif.Ecsy.Interp
       Gameverif.Ecsy.Parser
       Gameverif.Ecsy.Plain
       Gameverif.Ecsy.Printer
+      Gameverif.Ecsy.Resolver
       Gameverif.Ecsy.Testing
       Gameverif.Util.Adjunction
       Gameverif.Util.Ann

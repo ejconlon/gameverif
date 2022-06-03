@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Gameverif.Ecsy.Interp where
+module Gameverif.Ecsy.Resolver where
 
 import Control.Exception (Exception)
 import Control.Monad (foldM)
@@ -11,21 +11,21 @@ import Data.Text (Text)
 import Data.Typeable (Typeable)
 import Gameverif.Ecsy.Base (ArchDecl (..), ArchName (..), CompDecl (..), CompName (..), FuncDecl (..), FuncName (..),
                             InvDecl (..), InvName (..), MethDecl, ProgDecl (..), QueryDecl (..), QueryName (..),
-                            ResDecl (..), ResName (..), SysDecl (..), SysName (..))
+                            ResDecl (..), ResName (..), SysDecl (..), SysName (..), VarName (..))
 import Gameverif.Ecsy.Plain (PlainDecl, PlainProg)
 import qualified Gameverif.Viper.Plain as VP
 
-newtype Name = Name { unName :: Text }
+newtype ScopedName = ScopedName { unScopedName :: Text }
   deriving stock (Show)
   deriving newtype (Eq, Ord, IsString)
 
-data NamedVar v =
-    NamedVarBound !Name
-  | NamedVarFree !v
-  deriving stock (Eq, Ord, Show, Functor, Foldable, Traversable)
+data ResolvedName =
+    ResolvedNameBound !ScopedName
+  | ResolvedNameFree !VarName
+  deriving stock (Eq, Ord, Show)
 
-mainName :: Name
-mainName = Name "main"
+mainName :: ScopedName
+mainName = ScopedName "main"
 
 type PlainMethDecl v = MethDecl VP.Exp v
 
@@ -35,25 +35,25 @@ data SomeDecl v =
   | SomeDeclField !CompName
   deriving stock (Eq, Show)
 
-projectDecls :: PlainDecl v -> [(Name, SomeDecl v)]
+projectDecls :: PlainDecl v -> [(ScopedName, SomeDecl v)]
 projectDecls pd =
   let td = SomeDeclTop pd
   in case pd of
-    ProgDeclFunc fd -> [(Name (unFuncName (funcDeclName fd)), td)]
-    ProgDeclRes rd -> [(Name (unResName (resDeclName rd)), td)]
+    ProgDeclFunc fd -> [(ScopedName (unFuncName (funcDeclName fd)), td)]
+    ProgDeclRes rd -> [(ScopedName (unResName (resDeclName rd)), td)]
     -- TODO add method decls
-    ProgDeclSys sd -> [(Name (unSysName (sysDeclName sd)), td)]
-    ProgDeclQuery qd -> [(Name (unQueryName (queryDeclName qd)), td)]
-    ProgDeclComp cd -> [(Name (unCompName (compDeclName cd)), td)]
+    ProgDeclSys sd -> [(ScopedName (unSysName (sysDeclName sd)), td)]
+    ProgDeclQuery qd -> [(ScopedName (unQueryName (queryDeclName qd)), td)]
+    ProgDeclComp cd -> [(ScopedName (unCompName (compDeclName cd)), td)]
     -- TODO add field decls
-    ProgDeclArch ad -> [(Name (unArchName (archDeclName ad)), td)]
-    ProgDeclInv vd -> [(Name (unInvName (invDeclName vd)), td)]
+    ProgDeclArch ad -> [(ScopedName (unArchName (archDeclName ad)), td)]
+    ProgDeclInv vd -> [(ScopedName (unInvName (invDeclName vd)), td)]
     ProgDeclMain _ -> [(mainName, td)]
 
-type Resolver v = Map Name (SomeDecl v)
+type Resolver v = Map ScopedName (SomeDecl v)
 
 data DeclExistsError v = DeclExistsError
-  { deeName :: !Name
+  { deeName :: !ScopedName
   , deeTypeExists :: !(SomeDecl v)
   , deeTypeProposed :: !(SomeDecl v)
   } deriving stock (Eq, Show)
@@ -70,26 +70,26 @@ initResolver = foldM go1 Map.empty where
       Just exists -> Left (DeclExistsError name exists decl)
       Nothing -> Right (Map.insert name decl res)
 
-rewriteVar :: (v -> Text) -> Resolver v -> v -> NamedVar v
-rewriteVar toText res v =
-  let name = Name (toText v)
+rewriteVar :: Resolver Text -> Text -> ResolvedName
+rewriteVar res v =
+  let name = ScopedName v
   in if Map.member name res
-    then NamedVarBound name
-    else NamedVarFree v
+    then ResolvedNameBound name
+    else ResolvedNameFree (VarName v)
 
-rewriteResolver :: (v -> Text) -> Resolver v -> Resolver (NamedVar v)
-rewriteResolver txtize res = fmap go res where
-  toVar = rewriteVar txtize res
+rewriteResolver :: Resolver Text -> Resolver ResolvedName
+rewriteResolver res = fmap go res where
+  toVar = rewriteVar res
   go = \case
     SomeDeclTop pd -> SomeDeclTop (fmap toVar pd)
     SomeDeclMeth rn -> SomeDeclMeth rn
     SomeDeclField cn -> SomeDeclField cn
 
-newtype ResolveError = ResolveError { unResolveError :: Name }
+newtype ResolveError = ResolveError { unResolveError :: ScopedName }
   deriving stock (Show)
   deriving newtype (Eq)
 
 instance Exception ResolveError
 
-resolve :: Name -> Resolver v -> Either ResolveError (SomeDecl v)
+resolve :: ScopedName -> Resolver ResolvedName -> Either ResolveError (SomeDecl ResolvedName)
 resolve n = maybe (Left (ResolveError n)) Right . Map.lookup n
