@@ -11,6 +11,7 @@ import Gameverif.Util.Console (withConsoleM)
 import Gameverif.Viper.Concrete (forgetAnnProg)
 import Gameverif.Viper.Parser (vipProgParser)
 import Gameverif.Viper.Plain (PlainProg)
+import Gameverif.Viper.Printer (printProg)
 import Gameverif.Viper.Process (invokeViper)
 
 loadProg :: FilePath -> IO (PlainProg Text)
@@ -20,6 +21,9 @@ loadProg fp = do
 
 loadTestProg :: IO (PlainProg Text)
 loadTestProg = loadProg "testdata/test.vpr"
+
+sanityProg :: IO ()
+sanityProg = loadTestProg >>= print . printProg
 
 vipProgOk :: Text
 vipProgOk = [s|

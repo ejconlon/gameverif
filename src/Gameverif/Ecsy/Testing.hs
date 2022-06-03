@@ -8,6 +8,7 @@ import Gameverif.Common.Decode (decodeConsole, renderDecodeResult)
 import Gameverif.Ecsy.Concrete (forgetAnnProg)
 import Gameverif.Ecsy.Parser (ecsyProgParser)
 import Gameverif.Ecsy.Plain (PlainProg)
+import Gameverif.Ecsy.Printer (printProg)
 import Gameverif.Util.Console (withConsoleM)
 
 loadProg :: FilePath -> IO (PlainProg Text)
@@ -17,3 +18,6 @@ loadProg fp = do
 
 loadTestProg :: IO (PlainProg Text)
 loadTestProg = loadProg "testdata/test.ecsy"
+
+sanityProg :: IO ()
+sanityProg = loadTestProg >>= print . printProg

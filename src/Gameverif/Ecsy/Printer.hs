@@ -9,9 +9,9 @@ import Gameverif.Common.Printer (commaLineSep, commaSep, indented, mhcat, mvsep,
 import Gameverif.Ecsy.Base (Access (..), ArchDecl (..), ArchName (..), BoundArg (..), BoundRes (..), BuiltOp (..),
                             CompDecl (..), CompField (..), CompName (..), ExpF (..), FieldName (..), FuncDecl (..),
                             FuncName (..), InvDecl (..), InvName (..), Lit (..), LitTy (..), Local (..), MainDecl (..),
-                            MethDecl (..), MethName (unMethName), Op (..), ProgDecl (..), QueryAttr (..),
-                            QueryDecl (..), QueryName (..), ResDecl (..), ResName (..), StmtF (..), StmtSeqF (..),
-                            SysDecl (..), SysName (..), Ty (..), VarName (..), opArity)
+                            MethDecl (..), MethName (..), Op (..), ProgDecl (..), QueryAttr (..), QueryDecl (..),
+                            QueryName (..), ResDecl (..), ResName (..), StmtF (..), StmtSeqF (..), SysDecl (..),
+                            SysName (..), Ty (..), VarName (..), opArity)
 import Gameverif.Ecsy.Plain (Exp (..), PlainDecl, PlainProg, StmtSeq (..))
 import qualified Gameverif.Viper.Plain as VP
 import qualified Gameverif.Viper.Printer as VX

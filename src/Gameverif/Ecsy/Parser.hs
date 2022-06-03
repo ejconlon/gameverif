@@ -2,12 +2,16 @@
 
 module Gameverif.Ecsy.Parser where
 
+import Control.Applicative ((<|>))
 import Data.Text (Text)
-import Gameverif.Common.Parser (Extent, ParserM, keywordPred, withPos)
-import Gameverif.Ecsy.Base (ArchDecl, CompDecl, FuncDecl, InvDecl, MainDecl, ProgDecl (..), QueryDecl, ResDecl, SysDecl)
+import Gameverif.Common.Parser (Extent, ParserM, closeBraceP, commaP, identP, keywordP, keywordPred, lexP, openBraceP,
+                                withPos)
+import Gameverif.Ecsy.Base (Access (..), ArchDecl, CompDecl, CompName (CompName), FuncDecl, InvDecl, MainDecl,
+                            ProgDecl (..), QueryAttr (..), QueryDecl (..), QueryName (..), ResDecl, SysDecl)
 import Gameverif.Ecsy.Concrete (AnnExp (..), AnnProg, AnnProgDecl, AnnStmtSeq (..), mkAnnProgDecl)
 import qualified Gameverif.Viper.Parser as VP
-import SimpleParser (MatchBlock (..), MatchCase (..), anyToken, greedyStarParser, lookAheadMatch)
+import SimpleParser (MatchBlock (..), MatchCase (..), anyToken, betweenParser, greedyStarParser, lookAheadMatch,
+                     sepByParser)
 
 type EcsyExp = AnnExp Extent
 type EcsyStmtSeq = AnnStmtSeq Extent
@@ -26,8 +30,24 @@ compP = error "TODO"
 archP :: ParserM ArchDecl
 archP = error "TODO"
 
+queryNP :: ParserM QueryName
+queryNP = fmap QueryName identP
+
+compNP :: ParserM CompName
+compNP = fmap CompName identP
+
+queryAttrP :: ParserM QueryAttr
+queryAttrP = yesMut <|> noMut where
+  yesMut = keywordP "mut" *> fmap (`QueryAttr` AccessMut) compNP
+  noMut = fmap (`QueryAttr` AccessConst) compNP
+
 queryP :: ParserM QueryDecl
-queryP = error "TODO"
+queryP = lexP $ do
+  keywordP "query"
+  name <- queryNP
+  attrs <- betweenParser openBraceP closeBraceP (sepByParser queryAttrP commaP)
+  let x = QueryDecl name attrs
+  pure x
 
 invP :: ParserM (InvDecl VP.VipExp Text)
 invP = error "TODO"
