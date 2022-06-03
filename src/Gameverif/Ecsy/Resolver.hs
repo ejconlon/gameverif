@@ -4,14 +4,16 @@ module Gameverif.Ecsy.Resolver where
 
 import Control.Exception (Exception)
 import Control.Monad (foldM)
+import Data.Foldable (toList)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.String (IsString)
 import Data.Text (Text)
 import Data.Typeable (Typeable)
-import Gameverif.Ecsy.Base (ArchDecl (..), ArchName (..), CompDecl (..), CompName (..), FuncDecl (..), FuncName (..),
-                            InvDecl (..), InvName (..), MethDecl, ProgDecl (..), QueryDecl (..), QueryName (..),
-                            ResDecl (..), ResName (..), SysDecl (..), SysName (..), VarName (..))
+import Gameverif.Ecsy.Base (ArchDecl (..), ArchName (..), CompDecl (..), CompField (..), CompName (..), FieldName (..),
+                            FuncDecl (..), FuncName (..), InvDecl (..), InvName (..), MethDecl (..), MethName (..),
+                            ProgDecl (..), QueryDecl (..), QueryName (..), ResDecl (..), ResName (..), SysDecl (..),
+                            SysName (..), VarName (..))
 import Gameverif.Ecsy.Plain (PlainDecl, PlainProg)
 import qualified Gameverif.Viper.Plain as VP
 
@@ -40,12 +42,18 @@ projectDecls pd =
   let td = SomeDeclTop pd
   in case pd of
     ProgDeclFunc fd -> [(ScopedName (unFuncName (funcDeclName fd)), td)]
-    ProgDeclRes rd -> [(ScopedName (unResName (resDeclName rd)), td)]
-    -- TODO add method decls
+    ProgDeclRes rd ->
+      let n = resDeclName rd
+          x = (ScopedName (unResName n), td)
+          xs = [(ScopedName (unMethName (methDeclName md)), SomeDeclMeth n) | md <- toList (resDeclMethods rd)]
+      in x:xs
     ProgDeclSys sd -> [(ScopedName (unSysName (sysDeclName sd)), td)]
     ProgDeclQuery qd -> [(ScopedName (unQueryName (queryDeclName qd)), td)]
-    ProgDeclComp cd -> [(ScopedName (unCompName (compDeclName cd)), td)]
-    -- TODO add field decls
+    ProgDeclComp cd ->
+      let n = compDeclName cd
+          x = (ScopedName (unCompName n), td)
+          xs = [(ScopedName (unFieldName (compFieldName fd)), SomeDeclField n) | fd <- toList (compDeclFields cd)]
+      in x:xs
     ProgDeclArch ad -> [(ScopedName (unArchName (archDeclName ad)), td)]
     ProgDeclInv vd -> [(ScopedName (unInvName (invDeclName vd)), td)]
     ProgDeclMain _ -> [(mainName, td)]
