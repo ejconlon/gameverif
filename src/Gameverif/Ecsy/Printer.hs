@@ -54,7 +54,7 @@ printLocal (Local vn ac mty rhs) = mhcat
   , Just P.space
   , Just (P.pretty (unVarName vn))
   , fmap (\ty -> P.colon <> P.space <> printTy ty) mty
-  , Just P.space
+  , Just (P.space <> P.colon <> P.equals <> P.space)
   , Just (printExp rhs)
   ]
 
@@ -270,63 +270,3 @@ printLitTy = \case
   LitTyUnit -> "Unit"
   LitTyInt -> "Int"
   LitTyBool -> "Bool"
-
-{-
-
-function foo(value: int): int
-  resources (mut foo: Screen)
-  requires ($prop)
-  ensures ($prop)
-{
-  $stmts
-}
-
-resource Screen
-  parameters (value: int)
-  requires ($prop)
-{
-  method mut drawCircle(x: int, y: int, r: int): unit
-    requires ($prop)
-    ensures ($prop)
-}
-
-component Position
-{
-  x: int
-  y: int
-}
-
-archetype PlayerType
-{
-  Player
-  Position
-}
-
-invariant name { $exp }
-
-query Blah
-{
-  mut Player
-  Position
-}
-
-system movement
-  parameters (value: int)
-  resources (mut foo: Screen)
-  queries (Blah, Bar, Baz)
-  requires ($prop)
-  ensures ($prop)
-{
-  $stmt
-}
-
-main
-  parameters (value: int)
-  requires ($prop)
-  ensures ($prop)
-{
-  $stmts
-}
-
--}
-

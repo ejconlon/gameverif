@@ -9,21 +9,18 @@ import Data.Text (Text)
 import Gameverif.Common.Decode (decodeConsole, renderDecodeResult)
 import Gameverif.Util.Console (withConsoleM)
 import Gameverif.Viper.Concrete (forgetAnnProg)
-import Gameverif.Viper.Parser (vipProgParser)
-import Gameverif.Viper.Plain (PlainProg)
+import Gameverif.Viper.Parser (VipProg, vipProgParser)
 import Gameverif.Viper.Printer (printProg)
 import Gameverif.Viper.Process (invokeViper)
 
-loadProg :: FilePath -> IO (PlainProg Text)
-loadProg fp = do
-  p <- withConsoleM fp (decodeConsole vipProgParser >>= renderDecodeResult)
-  pure (forgetAnnProg p)
+loadProg :: FilePath -> IO (VipProg Text)
+loadProg fp = withConsoleM fp (decodeConsole vipProgParser >>= renderDecodeResult)
 
-loadTestProg :: IO (PlainProg Text)
+loadTestProg :: IO (VipProg Text)
 loadTestProg = loadProg "testdata/test.vpr"
 
 sanityProg :: IO ()
-sanityProg = loadTestProg >>= print . printProg
+sanityProg = loadTestProg >>= print . printProg . forgetAnnProg
 
 vipProgOk :: Text
 vipProgOk = [s|

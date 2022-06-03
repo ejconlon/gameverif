@@ -1,5 +1,72 @@
-query Foo
+function foo(value: Int): Int
+  resources (mut foo: Screen)
+  requires (value > 0)
+  ensures (value > -1)
 {
-  Bar; mut Baz
-  Quux
+  const x := value
+  mut y: Int := x
+  y := y + 1
+  // TODO add returns
+  // TODO add tuples
+  // return y
+}
+
+resource Screen
+  parameters (value: Int)
+  requires (value > 0)
+{
+  method mut drawCircle(x: Int, y: Int, r: Int): Unit
+    requires (r > 0)
+    ensures (r > -1)
+}
+
+component Player
+{
+  lives: Int
+}
+
+component Position
+{
+  x: Int
+  y: Int
+}
+
+archetype PlayerType
+{
+  Player
+  Position
+}
+
+// TODO fill in an invariant
+// invariant name { $exp }
+
+query PlayPos
+{
+  Player
+  mut Position
+}
+
+system movement
+  parameters (value: Int)
+  resources (mut screen: Screen)
+  queries (PlayerPos)
+  requires (value > 0)
+  ensures (value > -1)
+{
+  const r := foo(value)
+  // TODO add method calls
+  // foo.drawCircle(1, 2, r)
+}
+
+main
+  parameters (value: Int)
+  requires (value > 0)
+  ensures (value > -1)
+{
+  const x: Int := value
+  // TODO add allocate/spawn/order
+  // allocate Screen()
+  // spawn movement(3) as xid
+  // spawn movement(4) as yid
+  // order xid yid
 }
