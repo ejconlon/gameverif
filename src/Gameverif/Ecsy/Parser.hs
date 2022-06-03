@@ -14,9 +14,9 @@ import Gameverif.Common.Parser (Extent, ParserM, betweenBracesP, betweenParensP,
                                 keywordP, keywordPred, lexP, optByKeywordP, periodP, withPos)
 import Gameverif.Ecsy.Base (Access (..), Action (..), ArchDecl (..), ArchName (..), BoundArg (..), BoundRes (..),
                             CompDecl (..), CompField (..), CompName (..), FieldName (..), FuncDecl (..), FuncName (..),
-                            InvDecl (..), InvName (..), LitTy (..), Local (..), MainDecl (..), MethDecl, ProgDecl (..),
-                            QueryAttr (..), QueryDecl (..), QueryName (..), ResDecl (..), ResName (..), StmtF (..),
-                            StmtSeqF (..), SysDecl, Ty (..), VarName (..))
+                            InvDecl (..), InvName (..), LitTy (..), Local (..), MainDecl (..), MethDecl (..),
+                            MethName (..), ProgDecl (..), QueryAttr (..), QueryDecl (..), QueryName (..), ResDecl (..),
+                            ResName (..), StmtF (..), StmtSeqF (..), SysDecl (..), SysName (..), Ty (..), VarName (..))
 import Gameverif.Ecsy.Concrete (AnnExp (..), AnnProg, AnnProgDecl, AnnStmtSeq (..), mkAnnProgDecl, mkAnnStmtSeq)
 import qualified Gameverif.Viper.Parser as VP
 import qualified Gameverif.Viper.Parser as VX
@@ -33,6 +33,9 @@ funcNP = fmap FuncName identP
 
 queryNP :: ParserM QueryName
 queryNP = fmap QueryName identP
+
+sysNP :: ParserM SysName
+sysNP = fmap SysName identP
 
 compNP :: ParserM CompName
 compNP = fmap CompName identP
@@ -51,6 +54,9 @@ varNP = fmap VarName identP
 
 resNP :: ParserM ResName
 resNP = fmap ResName identP
+
+methNP :: ParserM MethName
+methNP = fmap MethName identP
 
 boundArgP :: ParserM BoundArg
 boundArgP = do
@@ -96,7 +102,18 @@ funcP = do
   pure x
 
 methDeclP :: ParserM (MethDecl VP.VipExp Text)
-methDeclP = error "TODO"
+methDeclP = do
+  keywordP "method"
+  mac <- optByKeywordP "mut" (pure AccessMut)
+  let ac = fromMaybe AccessConst mac
+  name <- methNP
+  args <- betweenParensP boundArgsP
+  colonP
+  retTy <- tyP
+  requires <- propClausesP "requires"
+  ensures <- propClausesP "ensures"
+  let x = MethDecl name ac args retTy requires ensures
+  pure x
 
 resP :: ParserM (ResDecl VP.VipExp Text)
 resP = do
@@ -154,8 +171,24 @@ invP = do
   let x = InvDecl name body
   pure x
 
+queriesP :: ParserM (Seq QueryName)
+queriesP = sepByParser queryNP commaP
+
 sysP :: ParserM (SysDecl VP.VipExp EcsyStmtSeq Text)
-sysP = error "TODO"
+sysP = do
+  keywordP "system"
+  name <- sysNP
+  mparams <- optClauseP "parameters" boundArgsP
+  let params = fromMaybe Seq.empty mparams
+  mresources <- optClauseP "resources" boundResesP
+  let resources = fromMaybe Seq.empty mresources
+  mqueries <- optClauseP "queries" queriesP
+  let queries = fromMaybe Seq.empty mqueries
+  requires <- propClausesP "requires"
+  ensures <- propClausesP "ensures"
+  body <- betweenBracesP stmtSeqP
+  let x = SysDecl name params resources queries requires ensures body
+  pure x
 
 clauseP :: Text -> ParserM a -> ParserM a
 clauseP kw p = do
