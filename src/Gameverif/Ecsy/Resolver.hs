@@ -14,8 +14,8 @@ import Gameverif.Ecsy.Base (ArchDecl (..), ArchName (..), CompDecl (..), CompFie
                             FuncDecl (..), FuncName (..), InvDecl (..), InvName (..), MethDecl (..), MethName (..),
                             ProgDecl (..), QueryDecl (..), QueryName (..), ResDecl (..), ResName (..), SysDecl (..),
                             SysName (..), VarName (..))
-import Gameverif.Ecsy.Plain (PlainDecl, PlainProg)
-import qualified Gameverif.Viper.Plain as VP
+import Gameverif.Ecsy.Concrete (AnnProg, AnnProgDecl)
+import Gameverif.Util.Ann (Located (..))
 
 newtype ScopedName = ScopedName { unScopedName :: Text }
   deriving stock (Show)
@@ -29,18 +29,16 @@ data ResolvedName =
 mainName :: ScopedName
 mainName = ScopedName "main"
 
-type PlainMethDecl v = MethDecl VP.Exp v
-
-data SomeDecl v =
-    SomeDeclTop !(PlainDecl v)
+data SomeDecl p v =
+    SomeDeclTop !(AnnProgDecl p v)
   | SomeDeclMeth !ResName
   | SomeDeclField !CompName
   deriving stock (Eq, Show)
 
-projectDecls :: PlainDecl v -> [(ScopedName, SomeDecl v)]
+projectDecls :: AnnProgDecl p v -> [(ScopedName, SomeDecl p v)]
 projectDecls pd =
   let td = SomeDeclTop pd
-  in case pd of
+  in case locVal pd of
     ProgDeclFunc fd -> [(ScopedName (unFuncName (funcDeclName fd)), td)]
     ProgDeclRes rd ->
       let n = resDeclName rd
@@ -58,17 +56,17 @@ projectDecls pd =
     ProgDeclInv vd -> [(ScopedName (unInvName (invDeclName vd)), td)]
     ProgDeclMain _ -> [(mainName, td)]
 
-type Resolver v = Map ScopedName (SomeDecl v)
+type Resolver p v = Map ScopedName (SomeDecl p v)
 
-data DeclExistsError v = DeclExistsError
+data DeclExistsError p v = DeclExistsError
   { deeName :: !ScopedName
-  , deeTypeExists :: !(SomeDecl v)
-  , deeTypeProposed :: !(SomeDecl v)
+  , deeTypeExists :: !(SomeDecl p v)
+  , deeTypeProposed :: !(SomeDecl p v)
   } deriving stock (Eq, Show)
 
-instance (Show v, Typeable v) => Exception (DeclExistsError v)
+instance (Show p, Typeable p, Show v, Typeable v) => Exception (DeclExistsError p v)
 
-initResolver :: PlainProg v -> Either (DeclExistsError v) (Resolver v)
+initResolver :: AnnProg p v -> Either (DeclExistsError p v) (Resolver p v)
 initResolver = foldM go1 Map.empty where
   go1 res decl =
     let pairs = projectDecls decl
@@ -78,18 +76,18 @@ initResolver = foldM go1 Map.empty where
       Just exists -> Left (DeclExistsError name exists decl)
       Nothing -> Right (Map.insert name decl res)
 
-rewriteVar :: Resolver Text -> Text -> ResolvedName
+rewriteVar :: Resolver p Text -> Text -> ResolvedName
 rewriteVar res v =
   let name = ScopedName v
   in if Map.member name res
     then ResolvedNameBound name
     else ResolvedNameFree (VarName v)
 
-rewriteResolver :: Resolver Text -> Resolver ResolvedName
-rewriteResolver res = fmap go res where
-  toVar = rewriteVar res
-  go = \case
-    SomeDeclTop pd -> SomeDeclTop (fmap toVar pd)
+rewriteResolver :: Resolver p Text -> Resolver p ResolvedName
+rewriteResolver res = fmap goSome res where
+  goDecl = fmap (fmap (rewriteVar res))
+  goSome = \case
+    SomeDeclTop pd -> SomeDeclTop (goDecl pd)
     SomeDeclMeth rn -> SomeDeclMeth rn
     SomeDeclField cn -> SomeDeclField cn
 
@@ -99,5 +97,5 @@ newtype ResolveError = ResolveError { unResolveError :: ScopedName }
 
 instance Exception ResolveError
 
-resolve :: ScopedName -> Resolver ResolvedName -> Either ResolveError (SomeDecl ResolvedName)
+resolve :: ScopedName -> Resolver p ResolvedName -> Either ResolveError (SomeDecl p ResolvedName)
 resolve n = maybe (Left (ResolveError n)) Right . Map.lookup n
